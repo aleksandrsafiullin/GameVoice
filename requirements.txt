@@ -1,0 +1,27 @@
+# GameVoice RU — Python dependencies
+# Core
+numpy>=1.24.0
+Pillow>=10.0.0
+opencv-python-headless>=4.8.0
+
+# OCR
+pytesseract>=0.3.10
+
+# TTS (Piper — primary)
+piper-tts>=1.2.0
+
+# Audio output device selection
+sounddevice>=0.4.6
+
+# Screen capture (optional — Windows only for window capture)
+mss>=9.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Optional: Silero TTS (heavy, PyTorch-based)
+# torch>=2.0.0
+
+# Windows only: Windows Graphics Capture
+# wgcapture>=0.1.0

@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec.bak
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Coverage
+.coverage
+coverage.xml
+htmlcov/
+
+# App data (voice models, settings)
+# Do NOT commit these — downloaded at runtime
+~/.gamevoice_ru/
+
+# macOS
+.DS_Store
+Thumbs.db
+
+# PyInstaller outputs (keep the .spec but not build artifacts)
+dist/
+build/
+*.exe
+
+# Test artifacts (keep test_data/frames/*.png for CI)
+# but not too big

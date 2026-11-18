@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "gamevoice-ru"
+version = "0.1.0"
+description = "Russian subtitle OCR to TTS dubbing for PS5/Remote Play (Windows 11)"
+readme = "README.md"
+license = { text = "GPL-3.0" }
+authors = [{ name = "GameVoice RU Contributors" }]
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24.0",
+    "Pillow>=10.0.0",
+    "opencv-python-headless>=4.8.0",
+    "pytesseract>=0.3.10",
+    "piper-tts>=1.2.0",
+    "sounddevice>=0.4.6",
+    "mss>=9.0.0",
+]
+keywords = ["subtitle", "ocr", "tts", "russian", "gaming", "ps5", "remoteplay"]
+classifiers = [
+    "Programming Language :: Python :: 3.11",
+    "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Games/Entertainment",
+]
+
+[project.scripts]
+gamevoice-ru = "gamevoice_ru.__main__:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "pytest-cov>=4.1"]
+silero = ["torch>=2.0"]
+wgcapture = ["wgcapture>=0.1"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["gamevoice_ru*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+log_cli = true
+log_cli_level = "INFO"
+
+[tool.coverage.run]
+source = ["gamevoice_ru"]
+omit = ["*/tests/*"]
