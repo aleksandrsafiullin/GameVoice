@@ -1,0 +1,352 @@
+name: CI — Tests + Windows EXE Build + Strict Self-Test
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # Linux tests + strict self-test (Tesseract + Piper)
+  # ─────────────────────────────────────────────────────────────────
+  test-linux:
+    name: Tests (Linux / Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Tesseract + Russian language data
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y tesseract-ocr tesseract-ocr-rus
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install \
+            numpy \
+            Pillow \
+            opencv-python-headless \
+            pytesseract \
+            sounddevice \
+            mss \
+            pytest \
+            pytest-cov
+
+      - name: Install piper-tts (best-effort)
+        run: pip install piper-tts || echo "piper-tts install failed — TTS strict check will fail"
+
+      - name: Download Piper Russian voice (CC0-1.0) for strict self-test
+        run: |
+          VOICE_DIR="$HOME/.gamevoice_ru/voices/ru_RU-dmitri-medium"
+          mkdir -p "$VOICE_DIR"
+          BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium"
+          for f in "ru_RU-dmitri-medium.onnx" "ru_RU-dmitri-medium.onnx.json"; do
+            dest="$VOICE_DIR/$f"
+            if [ ! -f "$dest" ]; then
+              echo "Downloading $f..."
+              curl -fsSL -o "$dest" "$BASE/$f" --retry 3 --retry-delay 5 || \
+                echo "WARNING: failed to download $f"
+            else
+              echo "$f already cached"
+            fi
+          done
+
+      - name: Generate synthetic test frames
+        run: python test_data/generate_frames.py
+
+      - name: Run unit + QA tests
+        run: |
+          python -m pytest tests/ \
+            -v \
+            --tb=short \
+            --ignore=tests/test_pipeline_integration.py \
+            -k "not Integration" \
+            --cov=gamevoice_ru \
+            --cov-report=xml \
+            --cov-report=term-missing
+
+      - name: Run integration tests (lenient)
+        run: |
+          python -m pytest tests/test_pipeline_integration.py \
+            -v --tb=short || echo "Integration tests skipped or partially failed"
+        continue-on-error: true
+
+      - name: Run headless self-test on Linux (lenient)
+        run: |
+          python -m gamevoice_ru --self-test --output self_test_linux.json
+          echo "Lenient exit: $?"
+
+      - name: Run headless self-test on Linux (STRICT)
+        run: |
+          python -m gamevoice_ru --self-test --strict --output self_test_linux_strict.json
+          exit_code=$?
+          python3 -c "
+          import json, sys
+          d = json.load(open('self_test_linux_strict.json'))
+          ocr = d['steps']['ocr']
+          tts = d['steps']['tts']
+          print(f'OCR engine={ocr[\"engine\"]} status={ocr[\"status\"]} has_cyrillic={ocr.get(\"has_cyrillic\")}')
+          print(f'TTS status={tts[\"status\"]} wav_bytes={tts.get(\"wav_bytes\",0)}')
+          print(f'Overall: {d[\"overall\"]}')
+          if d['critical_failures']:
+              print('Critical failures:', d['critical_failures'], file=sys.stderr)
+          "
+          exit $exit_code
+
+      - name: Upload Linux self-test JSON artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-test-linux
+          path: |
+            self_test_linux.json
+            self_test_linux_strict.json
+          if-no-files-found: error
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.xml
+        continue-on-error: true
+
+  # ─────────────────────────────────────────────────────────────────
+  # Windows tests + EXE build + strict self-test
+  # ─────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows EXE Build + Strict Self-Test
+    runs-on: windows-latest
+    needs: test-linux
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Tesseract for Windows (dynamic UB-Mannheim release)
+        shell: pwsh
+        run: |
+          # Use GitHub API to find the latest UB-Mannheim Tesseract release URL
+          # (avoids hardcoded version that may not exist in chocolatey/registry).
+          $tess_dir = "C:\Tesseract"
+          $tess_exe = "$tess_dir\tesseract.exe"
+          $tessdata = "$tess_dir\tessdata"
+          $installed = $false
+
+          # Method 1: Chocolatey (no version pin)
+          Write-Host "Trying choco install tesseract (no version pin)..."
+          $ErrorActionPreference = 'SilentlyContinue'
+          choco install tesseract -y --no-progress 2>&1 | Out-Null
+          $ErrorActionPreference = 'Continue'
+          $choco_dir = "C:\Program Files\Tesseract-OCR"
+          if (Test-Path "$choco_dir\tesseract.exe") {
+            $tess_dir = $choco_dir
+            $tess_exe = "$tess_dir\tesseract.exe"
+            $tessdata = "$tess_dir\tessdata"
+            $installed = $true
+            Write-Host "Tesseract installed via choco: $tess_dir"
+          }
+
+          # Method 2: GitHub API — latest UB-Mannheim release
+          if (-not $installed) {
+            Write-Host "Choco failed; trying UB-Mannheim latest release via GitHub API..."
+            try {
+              $rel = Invoke-RestMethod "https://api.github.com/repos/UB-Mannheim/tesseract/releases/latest" -TimeoutSec 30
+              $asset = $rel.assets | Where-Object { $_.name -like "*w64-setup*.exe" } | Select-Object -First 1
+              if ($asset) {
+                $url = $asset.browser_download_url
+                $out = "$env:TEMP\tess_setup.exe"
+                Write-Host "Downloading $($asset.name) from $url..."
+                Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 180 -UseBasicParsing
+                Start-Process $out -ArgumentList "/S /LANG=rus /DIR=$tess_dir" -Wait
+                if (Test-Path $tess_exe) { $installed = $true; Write-Host "Installed via UB-Mannheim $($rel.tag_name)" }
+              }
+            } catch {
+              Write-Host "WARNING: UB-Mannheim download failed: $_"
+            }
+          }
+
+          if ($installed) {
+            echo "$tess_dir" >> $env:GITHUB_PATH
+            echo "TESSDATA_PREFIX=$tessdata" >> $env:GITHUB_ENV
+            $ver = (& $tess_exe --version 2>&1) | Select-Object -First 1
+            Write-Host "Tesseract ready: $ver"
+          } else {
+            Write-Host "WARNING: Tesseract could not be installed — OCR strict check will fail"
+          }
+
+          # Ensure Russian tessdata is present regardless of install method
+          if ($installed -and -not (Test-Path "$tessdata\rus.traineddata")) {
+            Write-Host "Downloading rus.traineddata from GitHub tessdata repo..."
+            try {
+              $rus_url = "https://github.com/tesseract-ocr/tessdata/raw/main/rus.traineddata"
+              Invoke-WebRequest -Uri $rus_url -OutFile "$tessdata\rus.traineddata" -TimeoutSec 120 -UseBasicParsing
+              Write-Host "rus.traineddata downloaded OK ($([math]::Round((Get-Item "$tessdata\rus.traineddata").Length/1MB,1)) MB)"
+            } catch {
+              Write-Host "WARNING: rus.traineddata download failed: $_"
+            }
+          }
+          # Step always exits 0 — strict self-test will catch OCR=SKIP if Tesseract not usable
+          exit 0
+
+      - name: Install Russian OCR language pack (Windows OCR / WinRT)
+        shell: pwsh
+        run: |
+          Write-Host "Attempting Add-WindowsCapability for Russian OCR..."
+          try {
+            $result = Add-WindowsCapability -Online -Name "Language.OCR~~~ru-RU~0.0.1.0" -ErrorAction Stop
+            Write-Host "Russian OCR capability: RestartNeeded=$($result.RestartNeeded)"
+            echo "WINRT_RU_OCR_INSTALLED=true" >> $env:GITHUB_ENV
+          } catch {
+            Write-Host "WARNING: Add-WindowsCapability failed: $_"
+            Write-Host "Windows OCR ru-RU not available — Tesseract will cover OCR."
+            echo "WINRT_RU_OCR_INSTALLED=false" >> $env:GITHUB_ENV
+          }
+
+      - name: Install WinRT Python bindings (Windows OCR)
+        shell: pwsh
+        run: |
+          $pkgs = @("winrt-runtime",
+                    "winrt.windows.media.ocr",
+                    "winrt.windows.globalization",
+                    "winrt.windows.graphics.imaging",
+                    "winrt.windows.storage.streams")
+          foreach ($pkg in $pkgs) {
+            $out = pip install $pkg 2>&1
+            $ok = $out | Select-String "Successfully installed|already satisfied"
+            if ($ok) { Write-Host "OK: $pkg" }
+            else      { Write-Host "SKIP/FAIL: $pkg — $($out | Select-Object -Last 1)" }
+          }
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          python -m pip install --upgrade pip
+          $packages = @("numpy", "Pillow", "opencv-python-headless", "pytesseract",
+                        "sounddevice", "mss", "pytest", "pytest-cov")
+          pip install @packages
+          pip install piper-tts 2>$null || Write-Host "piper-tts optional, skipping"
+
+      - name: Download Piper Russian voice (CC0-1.0) for strict self-test
+        shell: pwsh
+        run: |
+          $voice_dir = "$env:USERPROFILE\.gamevoice_ru\voices\ru_RU-dmitri-medium"
+          New-Item -ItemType Directory -Force -Path $voice_dir | Out-Null
+          $base = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium"
+          foreach ($f in @("ru_RU-dmitri-medium.onnx", "ru_RU-dmitri-medium.onnx.json")) {
+            $dest = "$voice_dir\$f"
+            if (-not (Test-Path $dest)) {
+              Write-Host "Downloading $f..."
+              try {
+                Invoke-WebRequest -Uri "$base/$f" -OutFile $dest -TimeoutSec 300 -UseBasicParsing
+                $size = [math]::Round((Get-Item $dest).Length/1MB, 1)
+                Write-Host "Downloaded $f ($size MB)"
+              } catch {
+                Write-Host "WARNING: Failed to download $f - TTS strict check will fail: $_"
+              }
+            }
+          }
+
+      - name: Generate synthetic test frames
+        shell: pwsh
+        run: python test_data/generate_frames.py
+
+      - name: Run unit tests (Windows)
+        shell: pwsh
+        run: |
+          python -m pytest tests/ -v --tb=short `
+            --ignore=tests/test_pipeline_integration.py `
+            -k "not Integration"
+
+      - name: Run Python strict self-test (before EXE build)
+        shell: pwsh
+        run: |
+          $env:PYTHONIOENCODING = "utf-8"
+          python -m gamevoice_ru --self-test --strict --output self_test_python_windows_strict.json
+          $exit_code = $LASTEXITCODE
+          Write-Host "Python strict self-test exit: $exit_code"
+          if (Test-Path "self_test_python_windows_strict.json") {
+            $data = Get-Content self_test_python_windows_strict.json | ConvertFrom-Json
+            Write-Host "OCR: engine=$($data.steps.ocr.engine) status=$($data.steps.ocr.status)"
+            Write-Host "TTS: status=$($data.steps.tts.status) wav_bytes=$($data.steps.tts.wav_bytes)"
+            Write-Host "Overall: $($data.overall)"
+            if ($data.critical_failures.Count -gt 0) {
+              foreach ($f in $data.critical_failures) { Write-Host "  FAIL: $f" }
+            }
+          }
+          if ($exit_code -ne 0) {
+            Write-Host "WINRT_RU_OCR_INSTALLED=$env:WINRT_RU_OCR_INSTALLED"
+            exit $exit_code
+          }
+
+      - name: Install PyInstaller
+        shell: pwsh
+        run: pip install pyinstaller>=6.0
+
+      - name: Build EXE with PyInstaller
+        shell: pwsh
+        run: |
+          pyinstaller GameVoiceRU.spec --distpath dist --workpath build --noconfirm
+          if (Test-Path "dist/GameVoiceRU/GameVoiceRU.exe") {
+            $size = [math]::Round((Get-Item "dist/GameVoiceRU/GameVoiceRU.exe").Length/1MB, 2)
+            Write-Host "EXE built: $size MB"
+          } else {
+            Write-Host "ERROR: EXE not found"; exit 1
+          }
+
+      - name: Run EXE strict self-test (headless smoke test of built binary)
+        shell: pwsh
+        run: |
+          $exe = Resolve-Path "dist\GameVoiceRU\GameVoiceRU.exe"
+          $json_out = (Get-Location).Path + "\self_test_exe_strict.json"
+          Write-Host "Running: $exe --self-test --strict"
+          $proc = Start-Process -FilePath $exe `
+            -ArgumentList "--self-test", "--strict", "--output", $json_out `
+            -Wait -PassThru -NoNewWindow
+          $exit_code = $proc.ExitCode
+          Write-Host "EXE strict self-test exit: $exit_code"
+          if (Test-Path $json_out) {
+            $data = Get-Content $json_out | ConvertFrom-Json
+            Write-Host "platform=$($data.platform) python=$($data.python)"
+            Write-Host "OCR: engine=$($data.ocr_engine_used) status=$($data.steps.ocr.status) has_cyrillic=$($data.steps.ocr.has_cyrillic)"
+            Write-Host "TTS: status=$($data.steps.tts.status) wav_bytes=$($data.steps.tts.wav_bytes)"
+            Write-Host "Overall: $($data.overall)"
+            if ($data.critical_failures.Count -gt 0) {
+              foreach ($f in $data.critical_failures) { Write-Host "  FAIL: $f" }
+            }
+          } else {
+            Write-Host "ERROR: JSON not created by EXE"; exit 1
+          }
+          if ($exit_code -ne 0) { exit $exit_code }
+
+      - name: Zip the portable build
+        shell: pwsh
+        run: |
+          Compress-Archive -Path dist/GameVoiceRU -DestinationPath dist/GameVoiceRU-windows-x64.zip
+          $size = [math]::Round((Get-Item "dist/GameVoiceRU-windows-x64.zip").Length/1MB, 1)
+          Write-Host "Archive: $size MB"
+
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: GameVoiceRU-windows-x64
+          path: dist/GameVoiceRU-windows-x64.zip
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Upload Windows self-test JSON artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-test-windows
+          path: |
+            self_test_python_windows_strict.json
+            self_test_exe_strict.json
+          if-no-files-found: warn

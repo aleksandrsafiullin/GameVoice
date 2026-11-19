@@ -1,0 +1,1082 @@
+[
+  {
+    "frame_index": 0,
+    "event_id": "e01",
+    "file": "0000_e01.png",
+    "text": "Привет! Как дела?",
+    "style": "white_outline",
+    "notes": "single line, short",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 1,
+    "event_id": "e01_dup1",
+    "file": "0001_e01_dup1.png",
+    "text": "Привет! Как дела?",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e01",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 2,
+    "event_id": "e01_dup2",
+    "file": "0002_e01_dup2.png",
+    "text": "Привет! Как дела?",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e01",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 3,
+    "event_id": "e02",
+    "file": "0003_e02.png",
+    "text": "Мне нужно поговорить с тобой.",
+    "style": "white_outline",
+    "notes": "single line, medium",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 4,
+    "event_id": "e02_dup1",
+    "file": "0004_e02_dup1.png",
+    "text": "Мне нужно поговорить с тобой.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e02",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 5,
+    "event_id": "e02_dup2",
+    "file": "0005_e02_dup2.png",
+    "text": "Мне нужно поговорить с тобой.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e02",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 6,
+    "event_id": "e03",
+    "file": "0006_e03.png",
+    "text": "Это очень важно — не забудь.",
+    "style": "white_outline",
+    "notes": "single line with dash",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 7,
+    "event_id": "e03_dup1",
+    "file": "0007_e03_dup1.png",
+    "text": "Это очень важно — не забудь.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e03",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 8,
+    "event_id": "e03_dup2",
+    "file": "0008_e03_dup2.png",
+    "text": "Это очень важно — не забудь.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e03",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 9,
+    "event_id": "e04",
+    "file": "0009_e04.png",
+    "text": "Стой! Не двигайся!",
+    "style": "yellow_outline",
+    "notes": "yellow text, short",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 10,
+    "event_id": "e04_dup1",
+    "file": "0010_e04_dup1.png",
+    "text": "Стой! Не двигайся!",
+    "style": "yellow_outline",
+    "notes": "duplicate 1 of e04",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 11,
+    "event_id": "e04_dup2",
+    "file": "0011_e04_dup2.png",
+    "text": "Стой! Не двигайся!",
+    "style": "yellow_outline",
+    "notes": "duplicate 2 of e04",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 12,
+    "event_id": "e05",
+    "file": "0012_e05.png",
+    "text": "Ты слышишь меня?",
+    "style": "white_outline",
+    "notes": "question mark",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 13,
+    "event_id": "e05_dup1",
+    "file": "0013_e05_dup1.png",
+    "text": "Ты слышишь меня?",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e05",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 14,
+    "event_id": "e05_dup2",
+    "file": "0014_e05_dup2.png",
+    "text": "Ты слышишь меня?",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e05",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 15,
+    "event_id": "e06",
+    "file": "0015_e06.png",
+    "text": "Нет. Это невозможно.",
+    "style": "white_outline",
+    "notes": "sentence with period",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 16,
+    "event_id": "e06_dup1",
+    "file": "0016_e06_dup1.png",
+    "text": "Нет. Это невозможно.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e06",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 17,
+    "event_id": "e06_dup2",
+    "file": "0017_e06_dup2.png",
+    "text": "Нет. Это невозможно.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e06",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 18,
+    "event_id": "e07",
+    "file": "0018_e07.png",
+    "text": "Следуй за мной прямо сейчас.",
+    "style": "white_outline",
+    "notes": "command",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 19,
+    "event_id": "e07_dup1",
+    "file": "0019_e07_dup1.png",
+    "text": "Следуй за мной прямо сейчас.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e07",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 20,
+    "event_id": "e07_dup2",
+    "file": "0020_e07_dup2.png",
+    "text": "Следуй за мной прямо сейчас.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e07",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 21,
+    "event_id": "e08",
+    "file": "0021_e08.png",
+    "text": "Я думал, ты знаешь правду.",
+    "style": "white_outline",
+    "notes": "past tense",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 22,
+    "event_id": "e08_dup1",
+    "file": "0022_e08_dup1.png",
+    "text": "Я думал, ты знаешь правду.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e08",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 23,
+    "event_id": "e08_dup2",
+    "file": "0023_e08_dup2.png",
+    "text": "Я думал, ты знаешь правду.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e08",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 24,
+    "event_id": "e09",
+    "file": "0024_e09.png",
+    "text": "Скажи им, что всё в порядке.",
+    "style": "white_outline",
+    "notes": "longer line",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 25,
+    "event_id": "e09_dup1",
+    "file": "0025_e09_dup1.png",
+    "text": "Скажи им, что всё в порядке.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e09",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 26,
+    "event_id": "e09_dup2",
+    "file": "0026_e09_dup2.png",
+    "text": "Скажи им, что всё в порядке.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e09",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 27,
+    "event_id": "e10",
+    "file": "0027_e10.png",
+    "text": "Осторожно!",
+    "style": "white_outline",
+    "notes": "single word exclamation",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 28,
+    "event_id": "e10_dup1",
+    "file": "0028_e10_dup1.png",
+    "text": "Осторожно!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e10",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 29,
+    "event_id": "e10_dup2",
+    "file": "0029_e10_dup2.png",
+    "text": "Осторожно!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e10",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 30,
+    "event_id": "e11",
+    "file": "0030_e11.png",
+    "text": "Эта ситуация вышла из-под контроля.\nМы должны действовать немедленно.",
+    "style": "white_outline",
+    "notes": "2 lines",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 31,
+    "event_id": "e11_dup1",
+    "file": "0031_e11_dup1.png",
+    "text": "Эта ситуация вышла из-под контроля.\nМы должны действовать немедленно.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e11",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 32,
+    "event_id": "e11_dup2",
+    "file": "0032_e11_dup2.png",
+    "text": "Эта ситуация вышла из-под контроля.\nМы должны действовать немедленно.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e11",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 33,
+    "event_id": "e12",
+    "file": "0033_e12.png",
+    "text": "— Где ты был всё это время?\n— Не твоё дело.",
+    "style": "white_outline",
+    "notes": "dialogue 2 lines",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 34,
+    "event_id": "e12_dup1",
+    "file": "0034_e12_dup1.png",
+    "text": "— Где ты был всё это время?\n— Не твоё дело.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e12",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 35,
+    "event_id": "e12_dup2",
+    "file": "0035_e12_dup2.png",
+    "text": "— Где ты был всё это время?\n— Не твоё дело.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e12",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 36,
+    "event_id": "e13",
+    "file": "0036_e13.png",
+    "text": "Деньги уже переведены.\nПроверь свой счёт.",
+    "style": "white_outline",
+    "notes": "2 lines, money topic",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 37,
+    "event_id": "e13_dup1",
+    "file": "0037_e13_dup1.png",
+    "text": "Деньги уже переведены.\nПроверь свой счёт.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e13",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 38,
+    "event_id": "e13_dup2",
+    "file": "0038_e13_dup2.png",
+    "text": "Деньги уже переведены.\nПроверь свой счёт.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e13",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 39,
+    "event_id": "e14",
+    "file": "0039_e14.png",
+    "text": "Он не вернётся.\nЯ уверен в этом.",
+    "style": "white_outline",
+    "notes": "2 lines negative",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 40,
+    "event_id": "e14_dup1",
+    "file": "0040_e14_dup1.png",
+    "text": "Он не вернётся.\nЯ уверен в этом.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e14",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 41,
+    "event_id": "e14_dup2",
+    "file": "0041_e14_dup2.png",
+    "text": "Он не вернётся.\nЯ уверен в этом.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e14",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 42,
+    "event_id": "e15a",
+    "file": "0042_e15a.png",
+    "text": "Это важное со",
+    "style": "white_outline",
+    "notes": "typewriter partial 1",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 43,
+    "event_id": "e15a_dup1",
+    "file": "0043_e15a_dup1.png",
+    "text": "Это важное со",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e15a",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 44,
+    "event_id": "e15a_dup2",
+    "file": "0044_e15a_dup2.png",
+    "text": "Это важное со",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e15a",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 45,
+    "event_id": "e15b",
+    "file": "0045_e15b.png",
+    "text": "Это важное сообщение",
+    "style": "white_outline",
+    "notes": "typewriter partial 2",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 46,
+    "event_id": "e15b_dup1",
+    "file": "0046_e15b_dup1.png",
+    "text": "Это важное сообщение",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e15b",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 47,
+    "event_id": "e15b_dup2",
+    "file": "0047_e15b_dup2.png",
+    "text": "Это важное сообщение",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e15b",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 48,
+    "event_id": "e15c",
+    "file": "0048_e15c.png",
+    "text": "Это важное сообщение для всех.",
+    "style": "white_outline",
+    "notes": "typewriter complete",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 49,
+    "event_id": "e15c_dup1",
+    "file": "0049_e15c_dup1.png",
+    "text": "Это важное сообщение для всех.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e15c",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 50,
+    "event_id": "e15c_dup2",
+    "file": "0050_e15c_dup2.png",
+    "text": "Это важное сообщение для всех.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e15c",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 51,
+    "event_id": "e16",
+    "file": "0051_e16.png",
+    "text": "Встретимся у моста.",
+    "style": "white_outline",
+    "notes": "phrase 1st occurrence",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 52,
+    "event_id": "e16_dup1",
+    "file": "0052_e16_dup1.png",
+    "text": "Встретимся у моста.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e16",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 53,
+    "event_id": "e16_dup2",
+    "file": "0053_e16_dup2.png",
+    "text": "Встретимся у моста.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e16",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 54,
+    "event_id": "e16_blank",
+    "file": "0054_e16_blank.png",
+    "text": "",
+    "style": "blank",
+    "notes": "blank between repeats",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 55,
+    "event_id": "e16r",
+    "file": "0055_e16r.png",
+    "text": "Встретимся у моста.",
+    "style": "white_outline",
+    "notes": "same phrase 2nd occurrence",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 56,
+    "event_id": "e16r_dup1",
+    "file": "0056_e16r_dup1.png",
+    "text": "Встретимся у моста.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e16r",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 57,
+    "event_id": "e16r_dup2",
+    "file": "0057_e16r_dup2.png",
+    "text": "Встретимся у моста.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e16r",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 58,
+    "event_id": "e17a",
+    "file": "0058_e17a.png",
+    "text": "Брось оружие!",
+    "style": "white_outline",
+    "notes": "normal",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 59,
+    "event_id": "e17a_dup1",
+    "file": "0059_e17a_dup1.png",
+    "text": "Брось оружие!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e17a",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 60,
+    "event_id": "e17a_dup2",
+    "file": "0060_e17a_dup2.png",
+    "text": "Брось оружие!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e17a",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 61,
+    "event_id": "e17b",
+    "file": "0061_e17b.png",
+    "text": "Брось оруж1е!",
+    "style": "white_outline",
+    "notes": "flicker: OCR noise",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 62,
+    "event_id": "e17b_dup1",
+    "file": "0062_e17b_dup1.png",
+    "text": "Брось оруж1е!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e17b",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 63,
+    "event_id": "e17b_dup2",
+    "file": "0063_e17b_dup2.png",
+    "text": "Брось оруж1е!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e17b",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 64,
+    "event_id": "e17c",
+    "file": "0064_e17c.png",
+    "text": "Брось оружие!",
+    "style": "white_outline",
+    "notes": "stable again",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 65,
+    "event_id": "e17c_dup1",
+    "file": "0065_e17c_dup1.png",
+    "text": "Брось оружие!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e17c",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 66,
+    "event_id": "e17c_dup2",
+    "file": "0066_e17c_dup2.png",
+    "text": "Брось оружие!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e17c",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 67,
+    "event_id": "e18",
+    "file": "0067_e18.png",
+    "text": "Я не могу поверить в то, что всё это происходит прямо у нас под носом.",
+    "style": "white_outline",
+    "notes": "long single line",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 68,
+    "event_id": "e18_dup1",
+    "file": "0068_e18_dup1.png",
+    "text": "Я не могу поверить в то, что всё это происходит прямо у нас под носом.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e18",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 69,
+    "event_id": "e18_dup2",
+    "file": "0069_e18_dup2.png",
+    "text": "Я не могу поверить в то, что всё это происходит прямо у нас под носом.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e18",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 70,
+    "event_id": "e19",
+    "file": "0070_e19.png",
+    "text": "Да.",
+    "style": "white_outline",
+    "notes": "one word",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 71,
+    "event_id": "e19_dup1",
+    "file": "0071_e19_dup1.png",
+    "text": "Да.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e19",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 72,
+    "event_id": "e19_dup2",
+    "file": "0072_e19_dup2.png",
+    "text": "Да.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e19",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 73,
+    "event_id": "e20",
+    "file": "0073_e20.png",
+    "text": "Нет!",
+    "style": "white_outline",
+    "notes": "one word exclamation",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 74,
+    "event_id": "e20_dup1",
+    "file": "0074_e20_dup1.png",
+    "text": "Нет!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e20",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 75,
+    "event_id": "e20_dup2",
+    "file": "0075_e20_dup2.png",
+    "text": "Нет!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e20",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 76,
+    "event_id": "e21",
+    "file": "0076_e21.png",
+    "text": "Уходи.",
+    "style": "white_outline",
+    "notes": "one word command",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 77,
+    "event_id": "e21_dup1",
+    "file": "0077_e21_dup1.png",
+    "text": "Уходи.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e21",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 78,
+    "event_id": "e21_dup2",
+    "file": "0078_e21_dup2.png",
+    "text": "Уходи.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e21",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 79,
+    "event_id": "e22",
+    "file": "0079_e22.png",
+    "text": "Объект найден в здании.",
+    "style": "white_outline_dynamic",
+    "notes": "dynamic bg",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 80,
+    "event_id": "e22_dup1",
+    "file": "0080_e22_dup1.png",
+    "text": "Объект найден в здании.",
+    "style": "white_outline_dynamic",
+    "notes": "duplicate 1 of e22",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 81,
+    "event_id": "e22_dup2",
+    "file": "0081_e22_dup2.png",
+    "text": "Объект найден в здании.",
+    "style": "white_outline_dynamic",
+    "notes": "duplicate 2 of e22",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 82,
+    "event_id": "e23",
+    "file": "0082_e23.png",
+    "text": "Система под угрозой.",
+    "style": "white_outline_dynamic",
+    "notes": "dynamic bg 2",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 83,
+    "event_id": "e23_dup1",
+    "file": "0083_e23_dup1.png",
+    "text": "Система под угрозой.",
+    "style": "white_outline_dynamic",
+    "notes": "duplicate 1 of e23",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 84,
+    "event_id": "e23_dup2",
+    "file": "0084_e23_dup2.png",
+    "text": "Система под угрозой.",
+    "style": "white_outline_dynamic",
+    "notes": "duplicate 2 of e23",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 85,
+    "event_id": "blank1",
+    "file": "0085_blank1.png",
+    "text": "",
+    "style": "blank",
+    "notes": "blank subtitle area",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 86,
+    "event_id": "blank2",
+    "file": "0086_blank2.png",
+    "text": "",
+    "style": "blank",
+    "notes": "another blank",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 87,
+    "event_id": "hud1",
+    "file": "0087_hud1.png",
+    "text": "",
+    "style": "hud",
+    "notes": "HUD: $125,000",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 88,
+    "event_id": "hud2",
+    "file": "0088_hud2.png",
+    "text": "",
+    "style": "hud",
+    "notes": "HUD: 3 wanted stars",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 89,
+    "event_id": "e24",
+    "file": "0089_e24.png",
+    "text": "Дорога закрыта до утра.",
+    "style": "white_outline",
+    "notes": "night setting",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 90,
+    "event_id": "e24_dup1",
+    "file": "0090_e24_dup1.png",
+    "text": "Дорога закрыта до утра.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e24",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 91,
+    "event_id": "e24_dup2",
+    "file": "0091_e24_dup2.png",
+    "text": "Дорога закрыта до утра.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e24",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 92,
+    "event_id": "e25",
+    "file": "0092_e25.png",
+    "text": "Слушай меня внимательно, это жизненно важно.",
+    "style": "white_outline",
+    "notes": "long emphasis",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 93,
+    "event_id": "e25_dup1",
+    "file": "0093_e25_dup1.png",
+    "text": "Слушай меня внимательно, это жизненно важно.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e25",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 94,
+    "event_id": "e25_dup2",
+    "file": "0094_e25_dup2.png",
+    "text": "Слушай меня внимательно, это жизненно важно.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e25",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 95,
+    "event_id": "e26",
+    "file": "0095_e26.png",
+    "text": "Удачи, брат.",
+    "style": "white_outline",
+    "notes": "farewell",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 96,
+    "event_id": "e26_dup1",
+    "file": "0096_e26_dup1.png",
+    "text": "Удачи, брат.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e26",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 97,
+    "event_id": "e26_dup2",
+    "file": "0097_e26_dup2.png",
+    "text": "Удачи, брат.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e26",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 98,
+    "event_id": "e27",
+    "file": "0098_e27.png",
+    "text": "Мы выиграли!",
+    "style": "yellow_outline",
+    "notes": "victory",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 99,
+    "event_id": "e27_dup1",
+    "file": "0099_e27_dup1.png",
+    "text": "Мы выиграли!",
+    "style": "yellow_outline",
+    "notes": "duplicate 1 of e27",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 100,
+    "event_id": "e27_dup2",
+    "file": "0100_e27_dup2.png",
+    "text": "Мы выиграли!",
+    "style": "yellow_outline",
+    "notes": "duplicate 2 of e27",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 101,
+    "event_id": "e28",
+    "file": "0101_e28.png",
+    "text": "Система обнаружила нарушение.",
+    "style": "white_outline",
+    "notes": "system message",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 102,
+    "event_id": "e28_dup1",
+    "file": "0102_e28_dup1.png",
+    "text": "Система обнаружила нарушение.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e28",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 103,
+    "event_id": "e28_dup2",
+    "file": "0103_e28_dup2.png",
+    "text": "Система обнаружила нарушение.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e28",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 104,
+    "event_id": "e29",
+    "file": "0104_e29.png",
+    "text": "Телефон не отвечает.",
+    "style": "white_outline",
+    "notes": "phone",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 105,
+    "event_id": "e29_dup1",
+    "file": "0105_e29_dup1.png",
+    "text": "Телефон не отвечает.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e29",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 106,
+    "event_id": "e29_dup2",
+    "file": "0106_e29_dup2.png",
+    "text": "Телефон не отвечает.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e29",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 107,
+    "event_id": "e30",
+    "file": "0107_e30.png",
+    "text": "Не подведи меня.",
+    "style": "white_outline",
+    "notes": "trust",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 108,
+    "event_id": "e30_dup1",
+    "file": "0108_e30_dup1.png",
+    "text": "Не подведи меня.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e30",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 109,
+    "event_id": "e30_dup2",
+    "file": "0109_e30_dup2.png",
+    "text": "Не подведи меня.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e30",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 110,
+    "event_id": "e31",
+    "file": "0110_e31.png",
+    "text": "«Это невероятно», — сказал он.",
+    "style": "white_outline",
+    "notes": "Russian quotes and dash",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 111,
+    "event_id": "e31_dup1",
+    "file": "0111_e31_dup1.png",
+    "text": "«Это невероятно», — сказал он.",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e31",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 112,
+    "event_id": "e31_dup2",
+    "file": "0112_e31_dup2.png",
+    "text": "«Это невероятно», — сказал он.",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e31",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 113,
+    "event_id": "e32",
+    "file": "0113_e32.png",
+    "text": "Ты… ты серьёзно?!",
+    "style": "white_outline",
+    "notes": "ellipsis and double punct",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 114,
+    "event_id": "e32_dup1",
+    "file": "0114_e32_dup1.png",
+    "text": "Ты… ты серьёзно?!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e32",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 115,
+    "event_id": "e32_dup2",
+    "file": "0115_e32_dup2.png",
+    "text": "Ты… ты серьёзно?!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e32",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 116,
+    "event_id": "e33",
+    "file": "0116_e33.png",
+    "text": "Третий, четвёртый, пятый — все живы!",
+    "style": "white_outline",
+    "notes": "numbers text",
+    "expected_spoken": true
+  },
+  {
+    "frame_index": 117,
+    "event_id": "e33_dup1",
+    "file": "0117_e33_dup1.png",
+    "text": "Третий, четвёртый, пятый — все живы!",
+    "style": "white_outline",
+    "notes": "duplicate 1 of e33",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 118,
+    "event_id": "e33_dup2",
+    "file": "0118_e33_dup2.png",
+    "text": "Третий, четвёртый, пятый — все живы!",
+    "style": "white_outline",
+    "notes": "duplicate 2 of e33",
+    "expected_spoken": false
+  },
+  {
+    "frame_index": 119,
+    "event_id": "end_blank",
+    "file": "0119_end_blank.png",
+    "text": "",
+    "style": "blank",
+    "notes": "end of sequence",
+    "expected_spoken": false
+  }
+]
