@@ -613,36 +613,21 @@ class TestBlackFrameNoSpeak:
         """
         Random ASCII noise with no Cyrillic must be classified as garbage.
 
-        BUG (Finding #6): is_garbage() accepts text that contains Latin letters
-        with an alpha ratio > 35%, even when there are zero Cyrillic characters.
-        A string like ')iJIq)b3)RfhdjQ-oK' (Latin letters + symbols) passes
-        because has_latin=True and alpha_ratio=65%.
-        For a Russian-only subtitle app, Latin-only text should be rejected.
-        This test documents the gap; the assertion is set to the ACTUAL
-        (broken) behaviour so the CI stays green and the bug is visible in logs.
+        Finding #6 is FIXED: is_garbage() now has require_cyrillic=True by default,
+        rejecting Latin-only strings for a Russian-subtitle app.
         """
         from gamevoice_ru.pipeline.stabilizer import SubtitleStabilizer, is_garbage
 
-        # Fully Cyrillic-free ASCII noise — these SHOULD be garbage for a RU app
+        # Fully Cyrillic-free ASCII noise — all must now be garbage
         latin_only_samples = [
-            "abcdefghijklmnop",   # all Latin, no Cyrillic
+            "abcdefghijklmnop",   # all Latin
             "Hello World Test",   # English words
             ")iJIq)b3)RfhdjQK",  # Latin + symbols
         ]
         for text in latin_only_samples:
-            result = is_garbage(text)
-            # Document actual behaviour; True = correctly rejected, False = bug
-            if result:
-                pass  # correctly filtered
-            else:
-                # Bug: Latin-only noise passes garbage filter in a RU-subtitle app
-                import warnings
-                warnings.warn(
-                    f"BUG (Finding #6): is_garbage({text!r}) returned False — "
-                    "Latin-only text not filtered as garbage for a Russian OCR app.",
-                    UserWarning,
-                    stacklevel=2,
-                )
+            assert is_garbage(text), (
+                f"Latin-only text must be garbage (Finding #6 fixed): {text!r}"
+            )
 
         # Cyrillic text must NEVER be classified as garbage
         stab = SubtitleStabilizer(settle_ms=0, stability_count=1)
@@ -844,3 +829,162 @@ class TestDemoEndToEndHeadless:
         assert len(spoken) <= 3, (
             f"Dedup: 9 frames (3 events × 3) must not produce >3 speaks, got {len(spoken)}: {spoken}"
         )
+
+
+# ---------------------------------------------------------------------------
+# New Finding #A verification — Windows CI self-test SKIP behaviour
+# ---------------------------------------------------------------------------
+
+class TestSelfTestSkipDetection:
+    """
+    New Finding #A: self-test passes with OCR=SKIP and TTS=SKIP.
+    These tests verify the self-test JSON structure and confirm that SKIP
+    is detectable so CI can warn.
+    """
+
+    def test_self_test_json_has_ocr_status(self):
+        """self-test JSON must include ocr.status so CI can detect SKIP."""
+        from gamevoice_ru.self_test import run_self_test
+        result = run_self_test()
+        assert "ocr" in result["steps"]
+        assert "status" in result["steps"]["ocr"]
+        assert result["steps"]["ocr"]["status"] in ("OK", "WARN", "SKIP", "FAIL")
+
+    def test_self_test_json_has_tts_status(self):
+        """self-test JSON must include tts.status so CI can detect SKIP."""
+        from gamevoice_ru.self_test import run_self_test
+        result = run_self_test()
+        assert "tts" in result["steps"]
+        assert "status" in result["steps"]["tts"]
+        assert result["steps"]["tts"]["status"] in ("OK", "SKIP", "FAIL")
+
+    def test_overall_pass_with_skip_is_detectable(self):
+        """
+        PASS + SKIP combination can be detected from JSON.
+        CI strict checks should warn when overall=PASS but ocr=SKIP or tts=SKIP.
+        (Finding #B: a --strict flag that fails on SKIP would prevent silent gaps.)
+        """
+        from gamevoice_ru.self_test import run_self_test
+        result = run_self_test()
+        overall = result["overall"]
+        ocr_skip = result["steps"]["ocr"]["status"] == "SKIP"
+        tts_skip = result["steps"]["tts"]["status"] == "SKIP"
+
+        if overall == "PASS" and (ocr_skip or tts_skip):
+            # This is the gap: overall=PASS while critical components skipped
+            skipped = []
+            if ocr_skip:
+                skipped.append("OCR")
+            if tts_skip:
+                skipped.append("TTS")
+            import warnings
+            warnings.warn(
+                f"Finding #A: self-test overall=PASS but {'+'.join(skipped)}=SKIP. "
+                "No actual OCR or TTS synthesis verified. "
+                "Finding #B: --strict flag needed to fail CI on SKIP.",
+                UserWarning,
+                stacklevel=2,
+            )
+        # Test passes either way — this documents the gap without blocking CI
+
+
+# ---------------------------------------------------------------------------
+# New Finding #C — AudioPlayer.is_playing() residual bug (block=False)
+# ---------------------------------------------------------------------------
+
+class TestAudioPlayerIsPlayingResidual:
+    """
+    New Finding #C: When play(wav, block=False) is called, _playing is set
+    to True but only reset in the finally block when block=True.
+    Non-blocking play leaves _playing=True after audio ends.
+    Production pipeline always uses block=True, so no current impact.
+    """
+
+    def test_blocking_play_resets_playing_flag(self):
+        """In block=True mode, _playing must be False after play returns."""
+        from gamevoice_ru.pipeline.audio import AudioPlayer
+        from gamevoice_ru.pipeline.tts import _pcm_to_wav
+        import numpy as np
+
+        player = AudioPlayer(device_index=None)
+        # In CI sounddevice is unavailable; play() will catch the error and
+        # set _playing=False in the except block.
+        pcm = np.zeros(100, dtype=np.int16).tobytes()
+        wav = _pcm_to_wav(pcm, 22050, 1)
+        player.play(wav, block=True)
+        # Either sounddevice worked (and _playing=False after sd.wait()) or
+        # it raised an exception (and _playing=False in except block).
+        assert not player.is_playing(), (
+            "After block=True play completes, is_playing() must be False"
+        )
+
+    def test_nonblocking_play_residual_bug(self):
+        """
+        Documents Finding #C: block=False does not reset _playing after audio ends.
+        This test documents the CURRENT behaviour (the bug), not desired behaviour.
+        """
+        from gamevoice_ru.pipeline.audio import AudioPlayer
+        from gamevoice_ru.pipeline.tts import _pcm_to_wav
+        import numpy as np
+
+        player = AudioPlayer(device_index=None)
+        pcm = np.zeros(100, dtype=np.int16).tobytes()
+        wav = _pcm_to_wav(pcm, 22050, 1)
+
+        # In CI sounddevice is unavailable: play() raises, except resets _playing=False
+        # So the bug only manifests on a system WITH sounddevice/PortAudio.
+        # We just document that play() with block=False only resets the flag on exception.
+        player.play(wav, block=False)
+        # After play() with block=False and NO sounddevice (CI):
+        # sounddevice check returns False → returns "sounddevice не установлен"
+        # _playing was never set True (guard at top of play())
+        # So in CI this is vacuously OK. The bug only manifests with real audio hardware.
+        # Document: on systems WITH sounddevice, _playing stays True after non-blocking play.
+        import warnings
+        warnings.warn(
+            "Finding #C: AudioPlayer.is_playing() after block=False play is unreliable "
+            "on systems with PortAudio. _playing is only reset by stop() or block=True play. "
+            "No production impact (pipeline always uses block=True).",
+            UserWarning,
+            stacklevel=2,
+        )
+
+
+# ---------------------------------------------------------------------------
+# New Finding #D — winrt not in requirements.txt
+# ---------------------------------------------------------------------------
+
+class TestWinrtRequirements:
+    """
+    New Finding #D: winrt packages needed for Windows OCR are not in requirements.txt.
+    On a clean install, WindowsOCR silently falls back to Tesseract.
+    """
+
+    def test_winrt_import_state(self):
+        """
+        Document whether winrt is currently importable in this environment.
+        On non-Windows: winrt is not expected.
+        On Windows: winrt should be importable if requirements are complete.
+        """
+        import sys
+        if sys.platform != "win32":
+            # On Linux, winrt is never needed — OCR uses Tesseract
+            try:
+                import winrt  # noqa: F401
+                # If somehow installed on Linux, that's fine
+            except ImportError:
+                pass  # expected on Linux
+            return
+
+        # On Windows: winrt should be importable after full requirements install
+        try:
+            import winrt.windows.media.ocr  # noqa: F401
+        except ImportError:
+            import warnings
+            warnings.warn(
+                "Finding #D: winrt.windows.media.ocr is not importable. "
+                "WindowsOCR path (Finding #2 fix) will never run on this install. "
+                "Add winrt-runtime and winrt namespace packages to requirements.txt.",
+                UserWarning,
+                stacklevel=2,
+            )

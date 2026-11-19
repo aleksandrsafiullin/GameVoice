@@ -62,10 +62,41 @@ jobs:
             -v --tb=short || echo "Integration tests skipped or partially failed (expected in CI)"
         continue-on-error: true
 
-      - name: Run headless self-test on Linux (Tesseract)
+      - name: Download Piper Russian voice for Linux TTS verification
+        run: |
+          # QA: Download CC0-1.0 ru_RU-dmitri-medium voice so self-test TTS step
+          # exercises actual synthesis instead of reporting SKIP.
+          VOICE_DIR="$HOME/.gamevoice_ru/voices/ru_RU-dmitri-medium"
+          mkdir -p "$VOICE_DIR"
+          BASE="https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium"
+          for f in "ru_RU-dmitri-medium.onnx" "ru_RU-dmitri-medium.onnx.json"; do
+            dest="$VOICE_DIR/$f"
+            if [ ! -f "$dest" ]; then
+              echo "Downloading $f..."
+              curl -fsSL -o "$dest" "$BASE/$f" --retry 3 --retry-delay 5 || \
+                echo "WARNING: failed to download $f (TTS will be SKIP)"
+            fi
+          done
+
+      - name: Run headless self-test on Linux (Tesseract + Piper)
         run: |
           python -m gamevoice_ru --self-test --output self_test_linux.json
           echo "Self-test exit code: $?"
+          # QA strict check: OCR must not be SKIP on Linux (Tesseract is installed)
+          python3 -c "
+          import json, sys
+          d = json.load(open('self_test_linux.json'))
+          ocr = d['steps']['ocr']
+          tts = d['steps']['tts']
+          print(f'OCR engine={ocr[\"engine\"]} status={ocr[\"status\"]}')
+          print(f'TTS status={tts[\"status\"]}')
+          if ocr['status'] == 'SKIP':
+              print('QA-STRICT-FAIL: OCR=SKIP on Linux — Tesseract should be installed', file=sys.stderr)
+              sys.exit(1)
+          if tts['status'] == 'SKIP':
+              print('QA-WARN: TTS=SKIP on Linux — Piper voice download may have failed')
+          print('QA check passed')
+          " || (echo "QA strict check failed; see above"; exit 1)
 
       - name: Upload Linux self-test JSON
         uses: actions/upload-artifact@v4
@@ -96,22 +127,61 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Tesseract for Windows
+      - name: Install Tesseract for Windows (via Chocolatey)
         shell: pwsh
         run: |
-          $installer_url = "https://github.com/UB-Mannheim/tesseract/releases/download/v5.3.3.20231005/tesseract-ocr-w64-setup-5.3.3.20231005.exe"
-          $out = "$env:TEMP\tesseract_install.exe"
-          Write-Host "Downloading Tesseract..."
+          # QA: Use choco (pre-installed on GH Actions) instead of UB-Mannheim
+          # direct download, which reliably times out in CI (Finding re-verify).
+          Write-Host "Installing Tesseract via Chocolatey..."
           try {
-            Invoke-WebRequest -Uri $installer_url -OutFile $out -TimeoutSec 180 -UseBasicParsing
-            Start-Process $out -ArgumentList "/S /LANG=rus /DIR=C:\Tesseract" -Wait
-            echo "C:\Tesseract" >> $env:GITHUB_PATH
-            echo "TESSDATA_PREFIX=C:\Tesseract\tessdata" >> $env:GITHUB_ENV
-            Write-Host "Tesseract installed OK"
+            choco install tesseract --version=5.3.3 -y --no-progress 2>&1
+            # Chocolatey installs to C:\Program Files\Tesseract-OCR by default
+            $tess_dir = "C:\Program Files\Tesseract-OCR"
+            if (Test-Path "$tess_dir\tesseract.exe") {
+              echo "$tess_dir" >> $env:GITHUB_PATH
+              echo "TESSDATA_PREFIX=$tess_dir\tessdata" >> $env:GITHUB_ENV
+              Write-Host "Tesseract installed OK via choco: $(& "$tess_dir\tesseract.exe" --version 2>&1 | Select-Object -First 1)"
+            } else {
+              Write-Host "WARNING: tesseract.exe not found after choco install"
+            }
           } catch {
-            Write-Host "WARNING: Tesseract download failed: $_"
-            Write-Host "OCR tests will be skipped but build will continue."
+            Write-Host "WARNING: Tesseract choco install failed: $_"
           }
+
+      - name: Install Russian OCR language pack for Windows OCR (WinRT)
+        shell: pwsh
+        run: |
+          # QA: Try to install Russian OCR capability for Windows OCR API (Finding #2).
+          # windows-latest runners (Windows Server 2022) support Add-WindowsCapability.
+          # This enables the WindowsOCR path in the self-test; failure is non-fatal
+          # since Tesseract provides fallback OCR coverage.
+          Write-Host "Installing Russian OCR language capability..."
+          try {
+            $cap = Add-WindowsCapability -Online -Name "Language.OCR~~~ru-RU~0.0.1.0" -ErrorAction Stop
+            Write-Host "Russian OCR capability: $($cap.RestartNeeded ? 'installed (restart needed)' : 'installed OK')"
+          } catch {
+            Write-Host "WARNING: Add-WindowsCapability failed (non-fatal): $_"
+            Write-Host "Windows OCR will not be tested; Tesseract covers OCR verification."
+          }
+
+      - name: Install WinRT Python bindings for Windows OCR
+        shell: pwsh
+        run: |
+          # QA: Install winrt packages so WindowsOCR can be exercised in --self-test.
+          # Finding #2 fix code uses winrt; without these packages WindowsOCR always
+          # falls through to Tesseract fallback and the fix code path never runs.
+          pip install winrt-runtime 2>&1 | Select-String -Pattern "Successfully|already|ERROR" | Write-Host
+          # Install individual WinRT namespace packages needed by ocr.py
+          $winrt_pkgs = @(
+            "winrt.windows.media.ocr",
+            "winrt.windows.globalization",
+            "winrt.windows.graphics.imaging",
+            "winrt.windows.storage.streams"
+          )
+          foreach ($pkg in $winrt_pkgs) {
+            pip install $pkg 2>&1 | Select-String -Pattern "Successfully|already|ERROR|not found" | Write-Host
+          }
+          Write-Host "WinRT package install complete (errors are non-fatal)"
 
       - name: Install Python dependencies
         shell: pwsh
@@ -121,6 +191,29 @@ jobs:
                         "sounddevice", "mss", "pytest", "pytest-cov")
           pip install @packages
           pip install piper-tts 2>$null || Write-Host "piper-tts optional, skipping"
+
+      - name: Download Piper Russian voice for TTS verification
+        shell: pwsh
+        run: |
+          # QA: Download a CC0-1.0 licensed Piper voice so TTS synthesis can be
+          # verified in the self-test (not just SKIP). License: CC0-1.0 (public domain).
+          # Files are ~65 MB; this is the only way to actually exercise the TTS path.
+          $voice_dir = "$env:USERPROFILE\.gamevoice_ru\voices\ru_RU-dmitri-medium"
+          New-Item -ItemType Directory -Force -Path $voice_dir | Out-Null
+          $base_url = "https://huggingface.co/rhasspy/piper-voices/resolve/main/ru/ru_RU/dmitri/medium"
+          $files = @("ru_RU-dmitri-medium.onnx", "ru_RU-dmitri-medium.onnx.json")
+          foreach ($f in $files) {
+            $dest = "$voice_dir\$f"
+            if (-not (Test-Path $dest)) {
+              Write-Host "Downloading $f..."
+              try {
+                Invoke-WebRequest -Uri "$base_url/$f" -OutFile $dest -TimeoutSec 300 -UseBasicParsing
+                Write-Host "Downloaded $f ($('{0:N0}' -f (Get-Item $dest).Length) bytes)"
+              } catch {
+                Write-Host "WARNING: Failed to download $f - TTS will be SKIP: $_"
+              }
+            }
+          }
 
       - name: Generate synthetic test frames
         shell: pwsh
@@ -142,6 +235,23 @@ jobs:
           Get-Content self_test_python_windows.json
           if ($exit_code -ne 0) {
             Write-Host "WARNING: Python self-test reported critical failures (see JSON above)"
+          }
+          # QA strict check: parse OCR and TTS status from JSON
+          $data = Get-Content self_test_python_windows.json | ConvertFrom-Json
+          $ocr_status = $data.steps.ocr.status
+          $tts_status = $data.steps.tts.status
+          $ocr_engine = $data.steps.ocr.engine
+          Write-Host "QA: OCR engine=$ocr_engine status=$ocr_status | TTS status=$tts_status"
+          if ($ocr_status -eq "SKIP") {
+            Write-Host "QA-WARN: OCR=SKIP on Windows — neither Tesseract nor WindowsOCR available in this runner"
+            Write-Host "         This means OCR code was NOT exercised. See QA_REPORT.md finding #A."
+          } else {
+            Write-Host "QA-OK: OCR ran ($ocr_engine)"
+          }
+          if ($tts_status -eq "SKIP") {
+            Write-Host "QA-WARN: TTS=SKIP — Piper voice not downloaded or download failed"
+          } else {
+            Write-Host "QA-OK: TTS synthesized successfully"
           }
         continue-on-error: true
 
