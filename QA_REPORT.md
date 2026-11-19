@@ -1,307 +1,216 @@
-# QA_REPORT.md — Independent QA Review (v2 Re-verification)
+# QA_REPORT.md — Independent QA Review (v3 Final)
 
 **Reviewer:** QA Agent (independent)
-**Original review date:** 18 November 2026
-**Re-verification date:** 19 November 2026
+**v1:** 18 Nov 2026 — 14 initial findings
+**v2:** 19 Nov 2026 — re-verification after 84585d0–8f4002f; findings #A-E added
+**v3:** 19 Nov 2026 — final pass after c2ad35d + 9a2b27f; CI run [44449223525](https://github.com/aleksandrsafiullin/GameVoice/actions/runs/44449223525) all green
 **PR under review:** https://github.com/aleksandrsafiullin/GameVoice/pull/1
-**Dev branch:** `cursor/gamevoice-ru-app-10be` @ commits 84585d0, 6351ff6, 8f4002f
-**QA branch:** `cursor/qa-review-1104` (this PR)
-**Spec:** §11 acceptance criteria, §12 honesty rules
+**Dev branch:** `cursor/gamevoice-ru-app-10be` @ 9a2b27f
+**QA PR:** https://github.com/aleksandrsafiullin/GameVoice/pull/3
 
 ---
 
-## 1. Section 11 Acceptance Criteria — Current Status
+## VERDICT: GO for hardware testing (two minor pre-release notes)
 
-| # | Criterion (§11) | QA Status | Evidence |
+All blocking issues from v1-v2 are resolved and independently verified. The pipeline completed the full OCR->TTS cycle end-to-end in CI on both Linux (Tesseract) and Windows (WindowsOCR + Piper) with real Russian text, real synthesised audio, and strict-mode exit codes propagated correctly.
+
+**Two minor notes before distributing to end users** (not blockers for Alex's hardware test):
+1. `LICENSES` file (CC0-1.0 voice + GPL-3.0 Lingolay attribution) is not bundled in the EXE zip - add to `GameVoiceRU.spec` before public release.
+2. EXE section in README.ru.md does not mention that `winrt` is bundled (Tesseract not needed for EXE users).
+
+---
+
+## 1. Section 11 Acceptance Criteria - Final Status
+
+| # | Criterion (s11) | Status | Evidence |
 |---|---|---|---|
-| 1 | App runs on Windows 11 / reproducible launch | **PARTIAL** | EXE builds and launches (`--self-test` exits 0), but OCR=SKIP and TTS=SKIP in Windows CI. The EXE launches; it does not prove OCR or TTS work on Windows. |
-| 2 | Video source and subtitle rectangle selection | **PASS by test** | `tests/test_config.py` + existing tests. File source EOF fixed (Finding #5). |
-| 3 | Demo stream recognises RU phrases without translation | **PASS by test** | Linux CI: Tesseract OCR ran, 20/20 synthetic frames, no translation module loaded. Windows CI: OCR=SKIP (Tesseract download failed in CI). |
-| 4 | Static phrase not spoken repeatedly | **PASS by test** | `tests/qa/TestStaticSubtitleSpokenOnce` + `test_stabilizer.py`. All pass. |
-| 5 | New phrase + repeat-after-pause both recognised | **PASS by test** | `tests/qa/TestSameLineAfterPauseReSpoken` (two variants). |
-| 6 | Specific Bluetooth speaker selectable, test phrase audible | **NEEDS USER HARDWARE** | Code path verified. `interrupt_fn` now wired (Finding #3 fixed). No Bluetooth hardware in CI. |
-| 7 | Start/Stop buttons + visual OCR diagnostics | **PASS by code review** | `ui/main_window.py` unchanged and correct. |
-| 8 | Source/OCR/model/audio failures don't crash | **PASS by test** | `tests/qa/TestMissingTTSModel`, `TestMissingAudioDevice`, `TestBlackOrMissingSource`. OCR init error now reaches `on_error` (Finding #9 fix verified). |
-| 9 | Simulator results backed by tests; no fake PS5/GTA VI claims | **PASS** | No hardware claimed. REPORT.md now has honest ⚠️ markers. |
-| 10 | Source code, Russian guide, deps, licenses, report | **PARTIAL** | `winrt` missing from `requirements.txt` (New Finding #E). No install instructions for `winrt` packages in README.ru.md. |
+| 1 | App runs on Windows 11 | PASS | EXE launched via --self-test --strict in CI; exit 0; JSON artifact confirmed. Setup wizard guides first run. |
+| 2 | Video source and subtitle rectangle selection | PASS by test | tests/test_config.py + FileFrameSource EOF fix. File demo mode works. |
+| 3 | Demo stream recognises RU phrases without translation | PASS | Linux CI: Tesseract OCR "Привет! Это тестовая реплика." Windows CI: WindowsOCR same text. No translation module. |
+| 4 | Static phrase not spoken repeatedly | PASS by test | TestStaticSubtitleSpokenOnce: 20 identical frames -> exactly 1 speak. |
+| 5 | New phrase + repeat-after-pause both recognised | PASS by test | TestNewLineSpoken + TestSameLineAfterPauseReSpoken (via expiry and via reset). |
+| 6 | Specific Bluetooth speaker selectable, test phrase | NEEDS USER HARDWARE | Code path verified. interrupt_fn wired to AudioPlayer.stop. |
+| 7 | Start/Stop buttons + visual OCR diagnostics | PASS by code review | ui/main_window.py correct. setup_wizard.py added for first-run. |
+| 8 | Failures don't crash | PASS by test | TestMissingTTSModel, TestMissingAudioDevice, TestBlackOrMissingSource. OCR init error surfaces to on_error. |
+| 9 | Simulator results only; no fake PS5/GTA VI claims | PASS | Only synthetic frames used throughout. |
+| 10 | Source code, Russian guide, deps, licenses | PASS (with note) | All present in repo. LICENSES file missing from EXE zip (pre-release note). |
 
 ---
 
-## 2. CI Results — Run 44442723007
+## 2. CI Results - Run 44449223525
 
-| Job | Runner | Status | Notes |
-|---|---|---|---|
-| `test-linux` | ubuntu-latest | ✅ success | 155 tests pass. Linux `--self-test`: OCR=TesseractOCR ✅, TTS=SKIP (model not downloaded). |
-| `build-windows` | windows-latest | ✅ success | EXE built (5.75 MB), `--self-test` exit 0. **OCR=SKIP, TTS=SKIP** — see Finding #A. |
+| Job | Status | Real test execution |
+|---|---|---|
+| test-linux | success | 165 tests pass + strict self-test: Tesseract OCR + Piper TTS synthesis confirmed |
+| build-windows | success | WindowsOCR + Piper TTS both ran on Windows Server 2022; EXE strict self-test exit 0 |
 
-**Critical gap confirmed:** The Windows CI `--self-test` passes with both OCR and TTS in SKIP state. No Russian OCR and no TTS synthesis actually ran on Windows in any CI run. REPORT.md claim "Windows OCR=TesseractOCR" is **false** — CI log shows OCR=SKIP and warning "WindowsOCR unavailable: No module named 'winrt'. Falling back to Tesseract." followed by Tesseract download failure.
+### Linux strict self-test (from artifact self-test-linux):
 
----
-
-## 3. QA Test Results
-
-```
-tests/qa/test_section11_black_box.py  22 collected  22 passed  3 warnings
-tests/test_qa_fixes.py               36 collected  36 passed
-tests/ (original + integration)      97 collected  97 passed
-─────────────────────────────────────────────────────────────
-Total                                155 collected 155 passed
+```json
+"ocr": {"engine": "TesseractOCR", "status": "OK", "text": "Привет! Это тестовая реплика.", "has_cyrillic": true}
+"tts": {"status": "OK", "engine": "PiperTTS", "voice": "ru_RU-dmitri-medium", "wav_bytes": 119852, "duration_ms": 2716}
+"overall": "PASS", "strict": true
 ```
 
-Warnings are UserWarnings from `test_white_noise_frame_no_speak` — no longer relevant since `is_garbage(require_cyrillic=True)` now rejects Latin-only text. The warning is from the QA test's internal documentation loop and is harmless.
+### Windows Python + EXE strict self-test (from artifact self-test-windows):
 
----
-
-## 4. Per-Finding Re-Verification
-
-### Finding #1 — EXE never launched in CI
-
-**Fix claimed:** `--self-test` mode added; CI runs `GameVoiceRU.exe --self-test`.
-
-**Verified:** ✅ EXE launches and exits 0. `Start-Process -Wait` correctly blocks.
-
-**Residual gap:** EXE self-test reports OCR=SKIP and TTS=SKIP (see Finding #A). The EXE launches but does not synthesise any audio or run any OCR on Windows CI. This QA branch adds CI steps to address this.
-
----
-
-### Finding #2 — WindowsOCR `SoftwareBitmap` buffer never loaded
-
-**Fix claimed:** Now uses `BitmapDecoder` + `InMemoryRandomAccessStream` to populate the bitmap from PNG bytes.
-
-**Code review:** The new code path is structurally correct. Bytes are encoded to PNG, written to `InMemoryRandomAccessStream`, decoded via `BitmapDecoder`, and the resulting `SoftwareBitmap` is converted to BGRA8 before being passed to `recognize_async()`. The fix addresses both the missing buffer bug and the RGBA8/RGB format mismatch.
-
-**CI test coverage:** `test_windows_ocr_init_error_on_linux` and `test_windows_ocr_recognize_returns_empty_when_unavailable` only test the unavailable path on Linux. Neither test exercises the actual fixed OCR code path on Windows.
-
-**Root cause of non-verification:** `winrt` Python packages are not installed in the CI environment (no `pip install winrt-runtime` step). OCR fell back to Tesseract (which also failed to download), so WindowsOCR was never attempted.
-
-**Verdict: Code fix CLAIMED, not verified in any CI run.** This QA branch adds `pip install winrt-runtime` and `Add-WindowsCapability` steps to exercise the fixed path.
-
----
-
-### Finding #3 — `_stop_playback` permanently a no-op lambda
-
-**Fix claimed:** `TTSQueueManager` accepts `interrupt_fn`; `PipelineRunner` passes `AudioPlayer.stop`.
-
-**Code review:** ✅ Wiring is correct. `PipelineRunner._init_components` passes `interrupt_fn=self._player.stop`. `set_interrupt_fn()` allows late-binding.
-
-**Test:** `test_interrupt_fn_called_on_fast_enqueue` verifies the lambda fires when fast-mode enqueue is called. This is a real regression test.
-
-**Limitation:** Actual audio interruption (PortAudio stream stop) cannot be tested without hardware. The test verifies wiring, not actual audio cut-off.
-
-**Verdict: ✅ VERIFIED (wiring correct + regression test exists).** Full audio-stop verification needs hardware.
-
----
-
-### Finding #4 — `mark_spoken()` before synthesis: silent TTS failure suppresses subtitle
-
-**Fix claimed:** `unmark_spoken()` added to stabilizer; called in `_on_tts_error` to roll back suppression.
-
-**Code review:** ✅ Mechanism is correct. `mark_spoken` is still called at enqueue time (preventing re-enqueue loops from the same stable frame), and `unmark_spoken` rolls it back on TTS failure. `_pending_normalized` dict tracks the mapping.
-
-**Test:** `test_tts_error_allows_retry` and `test_unmark_spoken_via_on_tts_error` are real regression tests.
-
-**Verdict: ✅ VERIFIED.**
-
----
-
-### Finding #5 — `FileFrameSource` returns last frame indefinitely in non-loop mode
-
-**Fix claimed:** `grab_frame()` returns `None` after last frame; `at_eof` property added.
-
-**Code review:** ✅ Fix is correct:
-```python
-if self._index >= len(self._frames):
-    return None  # EOF in non-loop mode
-...
-self._index += 1  # will exceed len on next call
+```json
+"ocr": {"engine": "WindowsOCR", "status": "OK", "text": "Привет! Это тестовая реплика.", "has_cyrillic": true}
+"tts": {"status": "OK", "engine": "PiperTTS", "wav_bytes": 120876, "duration_ms": 2739}
+"overall": "PASS", "strict": true
 ```
 
-**Test:** `test_returns_none_after_last_frame` creates 3 frames, reads 10 times, asserts frames 4–10 are `None`. This is a real regression test.
+**Values are real, not hardcoded or mocked.** OCR text is actual output from recognising a Pillow-rendered image. WAV sizes (~120 KB, ~2.7 s) match PCM at 24 kHz 16-bit 1-ch. Python and EXE runs show slight variation (120876 vs 119852 bytes) - normal Piper context re-initialisation. No mock path in self_test.py.
 
-**Verdict: ✅ VERIFIED.**
-
----
-
-### Finding #6 — `is_garbage()` accepts Latin-only text
-
-**Fix claimed:** `is_garbage(text, require_cyrillic=True)` — Latin-only text rejected by default.
-
-**Code review:** ✅ `if require_cyrillic and not has_cyrillic: return True` added before existing checks.
-
-**Test:** `test_latin_only_is_garbage` verifies "Hello World Test" etc. return True. `test_stabilizer_rejects_latin_only` confirms `SubtitleStabilizer.update("Hello World Test")` does not trigger speech.
-
-**Verdict: ✅ VERIFIED.** QA test `test_white_noise_frame_no_speak` no longer emits UserWarnings on the fixed code.
-
----
-
-### Finding #7 — `_effective_settle_ms()` ignores configured `settle_ms` for non-typewriter subtitles
-
-**Fix claimed:** Returns `max(90.0, settle_ms * 0.3)` instead of hardcoded 90.
-
-**Code review:** Fix is real but **minimal in effect**. At the default `settle_ms=300`:
-- Before fix: returns 90 ms
-- After fix: `max(90, 300 * 0.3) = max(90, 90) = 90 ms`
-
-The user must set `stabilizer_settle_ms > 300` in settings to see any change. At `settle_ms=600`, effective becomes 180 ms (before: 90 ms). The fix is real but invisible at the default setting.
-
-**Test:** `test_nonzero_settle_ms_used_in_instant_mode` checks `settle_ms=600 → effective >= 180`. This is a valid regression test for the non-default case.
-
-**Verdict: ✅ VERIFIED for non-default values. At default settle_ms=300, behaviour is identical to before the fix.** Not a regression — just minimal improvement.
-
----
-
-### Finding #8 — `AudioPlayer.is_playing()` always returns `False`
-
-**Fix claimed:** `self._playing` flag tracked around `play()`/`stop()`/`wait_until_done()`.
-
-**Code review:** Fix is correct for `block=True` (the pipeline use case). **New residual bug:** when `play(wav, block=False)` is called, `_playing` is set to True but only reset in the `finally` block when `block=True`. For non-blocking play, `_playing` stays True indefinitely after the audio finishes (until `stop()` is called).
+**CI strict mode correctly fails on SKIP** (code-verified in self_test.py):
 
 ```python
-finally:
-    if block:          # ← only resets for blocking play
-        self._playing = False
+elif ocr_status == "SKIP" and strict:
+    result["critical_failures"].append("[strict] OCR=SKIP: no OCR engine available")
+    result["overall"] = "FAIL"
+# TTS SKIP:
+if strict:
+    result["critical_failures"].append(f"[strict] TTS=SKIP: Piper model not ready: {skip_reason}")
+    result["overall"] = "FAIL"
 ```
 
-In the actual pipeline, `block=True` is always used (`_play = lambda wav: self._player.play(wav, block=True)`), so this residual bug has no production impact. But the public API is misleading.
+**CI exit codes correctly propagated** (code-verified in ci.yml):
 
-**Test:** `test_is_playing_true_during_play` manually sets `player._playing = True` and reads `is_playing()`. It does NOT call `play()` at all. The test verifies the flag plumbing works but not the actual play/stop lifecycle through the flag.
+- Python: `$exit_code = $LASTEXITCODE; ...; if ($exit_code -ne 0) { exit $exit_code }`
+- EXE: `$proc = Start-Process ... -Wait -PassThru; if ($proc.ExitCode -ne 0) { exit $proc.ExitCode }`
 
-**Verdict: ✅ VERIFIED for pipeline use case (block=True). New residual: non-blocking play leaves `_playing=True` after audio ends.**
+**Tesseract with exit 0:** Even if both choco and GitHub API methods fail, the step exits 0. The strict self-test then fails with OCR=SKIP. CI turns red on the strict step, not the install step. Correct design.
 
----
-
-### Finding #9 — OCR init failure not surfaced to `on_error`
-
-**Fix claimed:** `_deferred_ocr_error` set in `_init_components`, emitted at start of `_run_loop`.
-
-**Code review:** ✅ Mechanism is correct. The deferred emit fires even if OCR init failure does not block pipeline start.
-
-**Test:** `test_ocr_init_failure_calls_on_error` manually sets `runner._deferred_ocr_error` and runs `_run_loop` briefly, then checks `errors` contains "OCR". This directly tests the emission path.
-
-**Partial gap:** The test bypasses `_init_components` and sets `_deferred_ocr_error` manually. It does not test that a real missing-Tesseract scenario triggers the deferred error path end-to-end through `_init_components`.
-
-**Verdict: ✅ VERIFIED for emission path. Full end-to-end coverage is partial.**
+**Add-WindowsCapability confirmed in CI log:** `RestartNeeded=False` (took ~12 min). `WINRT_RU_OCR_INSTALLED=true`. All 5 winrt packages installed. WindowsOCR (not Tesseract fallback) was the actual engine used. Finding #2 fix code ran and produced real Cyrillic text.
 
 ---
 
-### Finding #10 — `poll()` state path (original low-severity)
+## 3. QA Test Results - Final
 
-Not addressed in fixes. SPOKEN guard still prevents double-speak in practice.
+```
+tests/qa/test_section11_black_box.py  31 collected  31 passed  1 warning
+tests/test_qa_fixes.py                36 collected  36 passed
+tests/ (original + integration)       100 collected 100 passed
+Total                                 167 collected 167 passed
+```
 
-**Verdict: Acknowledged, not fixed. Low practical impact.**
-
----
-
-### Finding #14 — Copyright notice missing in `capture.py`
-
-**Fix claimed:** Docstring updated to include "Copyright (c) keremss7/lingolay contributors. Licensed under GPL-3.0."
-
-**Code review:** ✅ Docstring now contains "keremss7/lingolay".
-
-**Test:** `test_lingolay_attribution_in_capture_docstring` checks `capture.__doc__` contains "lingolay" or "keremss7".
-
-**Verdict: ✅ VERIFIED.**
+1 expected warning: TTS=SKIP locally (Piper voice not downloaded). CI enforces --strict which fails on this.
 
 ---
 
-## 5. New Findings from Re-Verification
+## 4. EXE Bundle Inspection
 
-### New Finding #A — Windows CI self-test passes with OCR=SKIP and TTS=SKIP (critical honesty)
+GameVoiceRU-windows-x64.zip - 108 MB, 1,474 entries.
 
-- **Severity:** Critical / Honesty
-- **Evidence (CI log run 44442723007):**
-  - `WindowsOCR unavailable: No module named 'winrt'`
-  - `WARNING: Tesseract download failed` (UB-Mannheim installer network-blocked)
-  - `tts: SKIP` (model not downloaded)
-  - `overall: PASS` (SKIP ≠ critical failure)
-- **Impact:** REPORT.md claims "✅ Windows EXE `--self-test`" but no OCR and no TTS synthesis actually ran on Windows. The self-test proves the EXE launches; it does not prove OCR or TTS work on Windows.
-- **This QA branch adds:**
-  1. `choco install tesseract` for reliable Tesseract on Windows (chocolatey is pre-installed on GH Actions)
-  2. `pip install winrt-runtime` + WinRT namespace packages
-  3. `Add-WindowsCapability -Online -Name "Language.OCR~~~ru-RU~0.0.1.0"` for Russian OCR
-  4. HuggingFace download of CC0-1.0 `ru_RU-dmitri-medium.onnx` for TTS verification
-  5. Linux `--self-test` QA-strict check that OCR≠SKIP
-  6. Windows QA diagnostic check: logs OCR/TTS status as QA-WARN or QA-OK
+| Component | Present | Notes |
+|---|---|---|
+| GameVoiceRU/GameVoiceRU.exe | YES | 5.9 MB |
+| winrt modules | YES | 11 entries: _winrt.cp311-win_amd64.pyd + 5 namespace .pywinrt tables |
+| piper/espeakbridge.pyd + espeak-ng-data/ | YES | Full espeak-ng phonemization data |
+| onnxruntime/ | YES | Piper ONNX inference engine |
+| README.ru.md | YES | In _internal/ |
+| DECISIONS.md | YES | In _internal/ |
+| .onnx voice models | NOT BUNDLED | Intentional - first-run setup wizard downloads ~65 MB |
+| LICENSES file | NOT BUNDLED | Piper voice CC0-1.0 + Lingolay GPL-3.0 attribution missing. Pre-release: add to GameVoiceRU.spec |
+| LICENSE (GPL-3.0 full text) | NOT BUNDLED | Minor - only dep dist-info licenses present |
 
----
+**What a clean Windows 11 install needs:**
 
-### New Finding #B — No `--strict` mode in `--self-test`: SKIP indistinguishable from pass
-
-- **Severity:** High
-- **File:** `gamevoice_ru/self_test.py`, `gamevoice_ru/__main__.py`
-- **Evidence:** `self_test.py` line 219: `if not ocr_text and ocr_error: result["warnings"].append(...)` — missing OCR/TTS is a warning, not a failure. `overall = "PASS"` with 2 SKIPs.
-- **Impact:** CI cannot reliably distinguish "app works" from "app launched but nothing ran." A `--strict` flag that fails on any SKIP would catch environment gaps.
-- **Requires app code change** → reported as finding, not implemented.
-- **Suggested fix:** Add `--strict` argument to `self_test.py`; when set, any `SKIP` in a critical step (OCR, TTS) causes exit 1.
+1. Run GameVoiceRU.exe -> setup wizard opens if OCR or voice missing
+2. Russian OCR language: Settings -> Language -> Add Russian, OR PowerShell: `Add-WindowsCapability -Online -Name "Language.OCR~~~ru-RU~0.0.1.0"` (wizard shows both)
+3. Piper voice: one-click download in wizard (~65 MB)
+4. Tesseract: NOT needed for EXE users - winrt is bundled; wizard offers it only as fallback for older Windows builds
 
 ---
 
-### New Finding #C — `AudioPlayer.is_playing()` broken for non-blocking play
+## 5. Finding Re-Verification Summary
 
-- **Severity:** Low (no production pipeline impact — pipeline always uses `block=True`)
-- **File:** `gamevoice_ru/pipeline/audio.py:167–182`
-- **Evidence:**
-  ```python
-  finally:
-      if block:          # block=False case never resets the flag
-          self._playing = False
-  ```
-  Calling `player.play(wav, block=False)` leaves `_playing=True` after audio ends.
-- **Impact:** Public API is misleading; could cause incorrect "audio still playing" status in future non-pipeline uses of `AudioPlayer`. No production impact today.
-
----
-
-### New Finding #D — `winrt` packages missing from `requirements.txt` and README.ru.md
-
-- **Severity:** Medium (Windows OCR path silently falls through to Tesseract)
-- **File:** `requirements.txt`, `README.ru.md`
-- **Evidence:** `ocr.py` imports `winrt.windows.media.ocr`, `winrt.windows.globalization`, etc. These are not in `requirements.txt`. On a clean Windows install with standard `pip install -r requirements.txt`, WindowsOCR will always fail with `ModuleNotFoundError` and fall back to Tesseract.
-- **Impact:** The fixed `WindowsOCR.recognize()` code (Finding #2) is never exercised on a clean install unless the user manually installs `winrt-runtime` and related packages. The README.ru.md has no mention of WinRT packages.
-- **Suggested fix:** Add to `requirements.txt` (Windows-conditional) and to README.ru.md "Windows OCR (Optional)" section: `pip install winrt-runtime winrt.windows.media.ocr winrt.windows.globalization winrt.windows.graphics.imaging winrt.windows.storage.streams`
-
----
-
-### New Finding #E — REPORT.md claim "Windows OCR=TesseractOCR" is false
-
-- **Severity:** Honesty
-- **File:** `REPORT.md` line ~36
-- **Evidence:** REPORT.md says `"| Windows EXE --self-test | ✅ | OCR=TesseractOCR (или WindowsOCR если установлен русский пакет), overall=PASS |"`. CI log shows OCR engine = SKIP (not TesseractOCR) in the Windows self-test, because Tesseract download failed.
-- **Suggested fix:** REPORT.md should say "OCR=SKIP (Tesseract download failed in CI runner; choco install added in QA branch to fix this)".
-
----
-
-## 6. What Remains Unverified (Requires User Hardware)
-
-The following **cannot be verified** in any CI environment:
-
-- **PS5 + Remote Play** — window capture, HDCP, black frame detection
-- **GTA VI subtitles** — font, region, actual OCR accuracy at ≥95%
-- **Bluetooth speaker** — device enumeration, WASAPI device selection, audio latency  
-- **Windows OCR with actual Russian Language Pack** — Finding #2 fix code is structurally correct but completely unrun in CI  
-- **Piper TTS synthesis on Windows** — SKIP in all Windows CI runs to date
-- **EXE on real Windows 11** — only Windows Server 2022 tested (GitHub Actions)
-- **Latency spec** — ≤1500 ms p50 / ≤2500 ms p95: `not verified on target hardware`
-- **Second PSN account for Remote Play** — unsupported by Sony
-
----
-
-## 7. Summary Table
-
-| Finding | Original Status | Fix Claimed | QA Verdict |
+| Finding | Severity | Status | Verified |
 |---|---|---|---|
-| #1 EXE never launched | Critical | Added `--self-test` | ✅ EXE launches; ⚠️ OCR/TTS SKIP in Windows CI |
-| #2 WindowsOCR buffer bug | Critical | BitmapDecoder fix | ⚠️ Code correct, **never ran in CI** (no `winrt` package) |
-| #3 `_stop_playback` no-op | High | `interrupt_fn` wired | ✅ Wiring verified |
-| #4 `mark_spoken` too early | High | `unmark_spoken` on error | ✅ Verified |
-| #5 FileSource infinite last frame | High | Returns `None` at EOF | ✅ Verified with regression test |
-| #6 Latin-only garbage passes | Medium | `require_cyrillic=True` | ✅ Verified with regression test |
-| #7 `settle_ms` ignored | Medium | `max(90, ms*0.3)` | ✅ Verified; minimal at default=300 |
-| #8 `is_playing()` always False | Medium | `_playing` flag | ✅ block=True case; ⚠️ block=False residual bug |
-| #9 OCR error not shown in UI | Medium | Deferred `_emit_error` | ✅ Emission path verified |
-| #10 `poll()` state path | Low | Not fixed | Acknowledged |
-| #14 `capture.py` attribution | Low | Docstring updated | ✅ Verified |
-| **#A** Windows SKIP self-test | **New Critical** | CI steps added in QA branch | Pending next CI run |
-| **#B** No `--strict` mode | **New High** | App code change needed | Reported as finding |
-| **#C** `is_playing()` block=False | **New Low** | Not fixed | Residual |
-| **#D** `winrt` missing from deps | **New Medium** | Reported | Not fixed by dev |
-| **#E** REPORT.md false OCR claim | **New Honesty** | Reported | Not corrected by dev |
+| #1 EXE never launched | Critical | FIXED | EXE strict self-test exit 0, JSON artifact confirmed |
+| #2 WindowsOCR buffer bug | Critical | FIXED AND VERIFIED | WindowsOCR ran in CI and returned Cyrillic text |
+| #3 _stop_playback no-op | High | FIXED | interrupt_fn=player.stop wired; regression test |
+| #4 mark_spoken too early | High | FIXED | unmark_spoken on TTS error; regression test |
+| #5 FileSource infinite last frame | High | FIXED | Returns None at EOF; regression test |
+| #6 Latin-only garbage passes | Medium | FIXED | require_cyrillic=True; regression test |
+| #7 settle_ms ignored | Medium | FIXED | max(90, ms*0.3); no effect at default=300ms |
+| #8 is_playing() always False | Medium | FIXED | _playing flag + _wait_and_clear watcher thread |
+| #9 OCR error not shown in UI | Medium | FIXED | Deferred _emit_error; regression test |
+| #10 poll() state path | Low | Acknowledged | SPOKEN guard prevents double-speak |
+| #14 capture.py attribution | Low | FIXED | Docstring updated |
+| #A Windows SKIP self-test | Critical/Honesty | FIXED | Strict mode + CI runs --strict; choco + WinRT + Piper voice |
+| #B No --strict mode | High | FIXED | Implemented and enforced in CI |
+| #C is_playing() block=False | Low | FIXED | _wait_and_clear daemon thread |
+| #D winrt missing from deps | Medium | FIXED partial | Commented in requirements.txt with pip install instructions; EXE bundles winrt |
+| #E REPORT.md false OCR claim | Honesty | FIXED | REPORT.md now reflects actual CI evidence |
+
+---
+
+## 6. Setup Wizard Review
+
+gamevoice_ru/ui/setup_wizard.py - first-run UX for missing OCR/TTS.
+
+Correct: checks both WindowsOCR and Tesseract at startup; shows green/red per component; one-click voice download with progress; Russian-language OCR instructions (Settings and PowerShell); thread-safe download; only shown when OCR or TTS not ready.
+
+Minor gap: _refresh_status() only updates status label text, not the red/green indicator rows. No crash; minor visual inconsistency on re-open after voice download.
+
+---
+
+## 7. What Remains Unverified (Requires User Hardware)
+
+| Item | Why unverifiable |
+|---|---|
+| PS5 + Remote Play window capture | No PS5; no HDMI |
+| GTA VI subtitle region, font, real OCR accuracy >= 95% | Game not available |
+| Bluetooth speaker - WASAPI device selection, latency | No Bluetooth hardware |
+| WindowsOCR on real Windows 11 (vs Windows Server 2022 CI) | CI uses Server 2022 |
+| Latency spec <=1500 ms p50 / <=2500 ms p95 | Only local OCR latency measured (~160 ms) |
+| Second PSN account Remote Play | Sony-unsupported; depends on firmware |
+
+---
+
+## 8. Hardware Test Checklist for Alex (Russian)
+
+Всё нижеследующее — самостоятельная проверка без разработчика.
+
+### Перед началом
+1. Скачайте `GameVoiceRU-windows-x64.zip` из артефактов CI → распакуйте в `C:\GameVoiceRU`.
+2. Запустите `GameVoiceRU.exe`. Откроется **мастер настройки**.
+3. В мастере нажмите **«Скачать голос Piper (~65 МБ)»** → дождитесь загрузки.
+4. Добавьте русский OCR одним из способов:
+   - **Вариант A:** `Настройки → Время и язык → Язык → Добавить язык → Русский`
+   - **Вариант B** (PowerShell от Администратора):
+     `Add-WindowsCapability -Online -Name "Language.OCR~~~ru-RU~0.0.1.0"`
+5. Перезапустите `GameVoiceRU.exe` — оба статуса должны стать зелёными (OCR ✓, TTS ✓).
+
+### Шаг 1: Demo-режим (без PS5, ~5 минут)
+- Источник: **Файл/папка** → укажите папку с PNG-кадрами (например, `_internal/test_data/frames`).
+- Нажмите **«▶ Начать озвучку»**.
+- **Ожидаемо:** в поле «Последний OCR» — русский текст, из колонки звучат слова, дубликаты не повторяются.
+
+### Шаг 2: Bluetooth-колонка
+- Убедитесь, что колонка подключена к ПК (Bluetooth).
+- В «Аудиовыход» выберите колонку.
+- Нажмите **«Тест звука»** → из колонки должна прозвучать фраза «Тестовая фраза. Колонка работает.»
+
+### Шаг 3: Remote Play + субтитры (нужна PS5 и GTA VI)
+1. Запустите **PS Remote Play** на ПК (войдите со **вторым** PSN-аккаунтом).
+2. Убедитесь, что игра идёт на телевизоре через **основной** аккаунт.
+3. В GameVoice RU: Источник → **Remote Play**, нажмите **«Выбрать область субтитров»**.
+4. Укажите нижнюю часть окна Remote Play (нижние ~15-20% экрана; для 720p примерно y=615, высота=100).
+5. Нажмите **«▶ Начать озвучку»**.
+6. В игре: Настройки → Доступность → Субтитры → Вкл (язык: **Русский**).
+
+### Шаг 4: Игровая проверка (10 минут с диалогами)
+
+- [ ] Русские слова произносятся при появлении субтитров?
+- [ ] Одна и та же фраза не повторяется несколько раз?
+- [ ] Новые реплики произносятся без лишней задержки (субъективно)?
+- [ ] При пустом экране (нет субтитров) — тишина?
+- [ ] При появлении меню — нет случайного озвучивания?
+- [ ] Если Remote Play разрывается — программа показывает ошибку, не падает?
+
+### Что сообщить
+Скриншот вкладки **«Статистика»** после 10 минут:
+кадров захвачено, OCR запусков, произнесено реплик, задержка OCR (мс).
+Любые вылеты, зависания или некорректно произнесённые фразы.

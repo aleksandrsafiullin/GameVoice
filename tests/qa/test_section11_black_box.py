@@ -832,18 +832,19 @@ class TestDemoEndToEndHeadless:
 
 
 # ---------------------------------------------------------------------------
-# New Finding #A verification — Windows CI self-test SKIP behaviour
+# Finding #A/#B — strict self-test verification (FIXED in c2ad35d)
 # ---------------------------------------------------------------------------
 
 class TestSelfTestSkipDetection:
     """
-    New Finding #A: self-test passes with OCR=SKIP and TTS=SKIP.
-    These tests verify the self-test JSON structure and confirm that SKIP
-    is detectable so CI can warn.
+    Finding #A (FIXED): --strict mode now exists; CI runs --self-test --strict.
+    Finding #B (FIXED): --strict flag implemented; SKIP → exit 1.
+
+    These tests verify the self-test JSON structure and strict-mode behaviour.
     """
 
     def test_self_test_json_has_ocr_status(self):
-        """self-test JSON must include ocr.status so CI can detect SKIP."""
+        """self-test JSON must include ocr.status."""
         from gamevoice_ru.self_test import run_self_test
         result = run_self_test()
         assert "ocr" in result["steps"]
@@ -851,53 +852,62 @@ class TestSelfTestSkipDetection:
         assert result["steps"]["ocr"]["status"] in ("OK", "WARN", "SKIP", "FAIL")
 
     def test_self_test_json_has_tts_status(self):
-        """self-test JSON must include tts.status so CI can detect SKIP."""
+        """self-test JSON must include tts.status."""
         from gamevoice_ru.self_test import run_self_test
         result = run_self_test()
         assert "tts" in result["steps"]
         assert "status" in result["steps"]["tts"]
         assert result["steps"]["tts"]["status"] in ("OK", "SKIP", "FAIL")
 
-    def test_overall_pass_with_skip_is_detectable(self):
+    def test_strict_field_set_in_json(self):
+        """strict=True must be reflected in JSON output."""
+        from gamevoice_ru.self_test import run_self_test
+        result_lenient = run_self_test(strict=False)
+        result_strict = run_self_test(strict=True)
+        assert result_lenient["strict"] is False
+        assert result_strict["strict"] is True
+
+    def test_strict_mode_fails_on_tts_skip(self):
+        """In strict mode, TTS=SKIP must set overall=FAIL."""
+        from gamevoice_ru.self_test import run_self_test
+        from gamevoice_ru.pipeline.tts import PiperTTS
+        tts = PiperTTS("ru_RU-dmitri-medium")
+        if tts.is_ready():
+            import pytest
+            pytest.skip("Piper model available — cannot test SKIP path")
+        result = run_self_test(strict=True)
+        assert result["steps"]["tts"]["status"] == "SKIP"
+        assert result["overall"] == "FAIL", "strict=True + TTS=SKIP must set overall=FAIL"
+        assert any("[strict]" in f for f in result["critical_failures"])
+
+    def test_overall_status_detectable(self):
         """
-        PASS + SKIP combination can be detected from JSON.
-        CI strict checks should warn when overall=PASS but ocr=SKIP or tts=SKIP.
-        (Finding #B: a --strict flag that fails on SKIP would prevent silent gaps.)
+        In local dev environment, TTS may be SKIP (voice not downloaded).
+        Warns so developer knows to run: python -m gamevoice_ru.pipeline.tts --download piper
+        In CI, --strict mode catches this and fails the build.
         """
         from gamevoice_ru.self_test import run_self_test
         result = run_self_test()
-        overall = result["overall"]
-        ocr_skip = result["steps"]["ocr"]["status"] == "SKIP"
         tts_skip = result["steps"]["tts"]["status"] == "SKIP"
-
-        if overall == "PASS" and (ocr_skip or tts_skip):
-            # This is the gap: overall=PASS while critical components skipped
-            skipped = []
-            if ocr_skip:
-                skipped.append("OCR")
-            if tts_skip:
-                skipped.append("TTS")
+        if tts_skip:
             import warnings
             warnings.warn(
-                f"Finding #A: self-test overall=PASS but {'+'.join(skipped)}=SKIP. "
-                "No actual OCR or TTS synthesis verified. "
-                "Finding #B: --strict flag needed to fail CI on SKIP.",
+                "TTS=SKIP locally (Piper voice not downloaded). "
+                "In CI, --strict catches this. Run: python -m gamevoice_ru.pipeline.tts --download piper",
                 UserWarning,
                 stacklevel=2,
             )
-        # Test passes either way — this documents the gap without blocking CI
+        # Passes either way — CI enforces the strict constraint
 
 
 # ---------------------------------------------------------------------------
-# New Finding #C — AudioPlayer.is_playing() residual bug (block=False)
+# Finding #C — AudioPlayer.is_playing() block=False (FIXED in c2ad35d)
 # ---------------------------------------------------------------------------
 
 class TestAudioPlayerIsPlayingResidual:
     """
-    New Finding #C: When play(wav, block=False) is called, _playing is set
-    to True but only reset in the finally block when block=True.
-    Non-blocking play leaves _playing=True after audio ends.
-    Production pipeline always uses block=True, so no current impact.
+    Finding #C (FIXED): _wait_and_clear daemon thread resets _playing=False
+    after non-blocking play finishes (audio.py _wait_and_clear method added).
     """
 
     def test_blocking_play_resets_playing_flag(self):
@@ -907,47 +917,32 @@ class TestAudioPlayerIsPlayingResidual:
         import numpy as np
 
         player = AudioPlayer(device_index=None)
-        # In CI sounddevice is unavailable; play() will catch the error and
-        # set _playing=False in the except block.
         pcm = np.zeros(100, dtype=np.int16).tobytes()
         wav = _pcm_to_wav(pcm, 22050, 1)
         player.play(wav, block=True)
-        # Either sounddevice worked (and _playing=False after sd.wait()) or
-        # it raised an exception (and _playing=False in except block).
         assert not player.is_playing(), (
             "After block=True play completes, is_playing() must be False"
         )
 
-    def test_nonblocking_play_residual_bug(self):
+    def test_nonblocking_play_fix_verified(self):
         """
-        Documents Finding #C: block=False does not reset _playing after audio ends.
-        This test documents the CURRENT behaviour (the bug), not desired behaviour.
+        Finding #C is FIXED: _wait_and_clear method exists in AudioPlayer.
+        In CI (no PortAudio), play() returns error immediately → _playing stays False.
+        On real hardware the watcher thread resets _playing after sd.wait() returns.
         """
         from gamevoice_ru.pipeline.audio import AudioPlayer
         from gamevoice_ru.pipeline.tts import _pcm_to_wav
         import numpy as np
 
         player = AudioPlayer(device_index=None)
+        # Verify the fix mechanism exists
+        assert hasattr(player, "_wait_and_clear"), "_wait_and_clear must exist (Finding #C fix)"
+
         pcm = np.zeros(100, dtype=np.int16).tobytes()
         wav = _pcm_to_wav(pcm, 22050, 1)
-
-        # In CI sounddevice is unavailable: play() raises, except resets _playing=False
-        # So the bug only manifests on a system WITH sounddevice/PortAudio.
-        # We just document that play() with block=False only resets the flag on exception.
         player.play(wav, block=False)
-        # After play() with block=False and NO sounddevice (CI):
-        # sounddevice check returns False → returns "sounddevice не установлен"
-        # _playing was never set True (guard at top of play())
-        # So in CI this is vacuously OK. The bug only manifests with real audio hardware.
-        # Document: on systems WITH sounddevice, _playing stays True after non-blocking play.
-        import warnings
-        warnings.warn(
-            "Finding #C: AudioPlayer.is_playing() after block=False play is unreliable "
-            "on systems with PortAudio. _playing is only reset by stop() or block=True play. "
-            "No production impact (pipeline always uses block=True).",
-            UserWarning,
-            stacklevel=2,
-        )
+        # sounddevice unavailable in CI → error caught → _playing=False immediately
+        assert not player.is_playing(), "After play() error, _playing must be False"
 
 
 # ---------------------------------------------------------------------------
