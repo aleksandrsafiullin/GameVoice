@@ -131,24 +131,71 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Install Tesseract for Windows (via Chocolatey)
+      - name: Install Tesseract for Windows (dynamic UB-Mannheim release)
         shell: pwsh
         run: |
-          Write-Host "Installing Tesseract via Chocolatey..."
-          try {
-            choco install tesseract --version=5.3.3 -y --no-progress 2>&1
-            $tess_dir = "C:\Program Files\Tesseract-OCR"
-            if (Test-Path "$tess_dir\tesseract.exe") {
-              echo "$tess_dir" >> $env:GITHUB_PATH
-              echo "TESSDATA_PREFIX=$tess_dir\tessdata" >> $env:GITHUB_ENV
-              $ver = (& "$tess_dir\tesseract.exe" --version 2>&1) | Select-Object -First 1
-              Write-Host "Tesseract installed: $ver"
-            } else {
-              Write-Host "WARNING: tesseract.exe not found after choco install"
-            }
-          } catch {
-            Write-Host "WARNING: Tesseract choco install failed: $_"
+          # Use GitHub API to find the latest UB-Mannheim Tesseract release URL
+          # (avoids hardcoded version that may not exist in chocolatey/registry).
+          $tess_dir = "C:\Tesseract"
+          $tess_exe = "$tess_dir\tesseract.exe"
+          $tessdata = "$tess_dir\tessdata"
+          $installed = $false
+
+          # Method 1: Chocolatey (no version pin)
+          Write-Host "Trying choco install tesseract (no version pin)..."
+          $ErrorActionPreference = 'SilentlyContinue'
+          choco install tesseract -y --no-progress 2>&1 | Out-Null
+          $ErrorActionPreference = 'Continue'
+          $choco_dir = "C:\Program Files\Tesseract-OCR"
+          if (Test-Path "$choco_dir\tesseract.exe") {
+            $tess_dir = $choco_dir
+            $tess_exe = "$tess_dir\tesseract.exe"
+            $tessdata = "$tess_dir\tessdata"
+            $installed = $true
+            Write-Host "Tesseract installed via choco: $tess_dir"
           }
+
+          # Method 2: GitHub API — latest UB-Mannheim release
+          if (-not $installed) {
+            Write-Host "Choco failed; trying UB-Mannheim latest release via GitHub API..."
+            try {
+              $rel = Invoke-RestMethod "https://api.github.com/repos/UB-Mannheim/tesseract/releases/latest" -TimeoutSec 30
+              $asset = $rel.assets | Where-Object { $_.name -like "*w64-setup*.exe" } | Select-Object -First 1
+              if ($asset) {
+                $url = $asset.browser_download_url
+                $out = "$env:TEMP\tess_setup.exe"
+                Write-Host "Downloading $($asset.name) from $url..."
+                Invoke-WebRequest -Uri $url -OutFile $out -TimeoutSec 180 -UseBasicParsing
+                Start-Process $out -ArgumentList "/S /LANG=rus /DIR=$tess_dir" -Wait
+                if (Test-Path $tess_exe) { $installed = $true; Write-Host "Installed via UB-Mannheim $($rel.tag_name)" }
+              }
+            } catch {
+              Write-Host "WARNING: UB-Mannheim download failed: $_"
+            }
+          }
+
+          if ($installed) {
+            echo "$tess_dir" >> $env:GITHUB_PATH
+            echo "TESSDATA_PREFIX=$tessdata" >> $env:GITHUB_ENV
+            $ver = (& $tess_exe --version 2>&1) | Select-Object -First 1
+            Write-Host "Tesseract ready: $ver"
+          } else {
+            Write-Host "WARNING: Tesseract could not be installed — OCR strict check will fail"
+          }
+
+          # Ensure Russian tessdata is present regardless of install method
+          if ($installed -and -not (Test-Path "$tessdata\rus.traineddata")) {
+            Write-Host "Downloading rus.traineddata from GitHub tessdata repo..."
+            try {
+              $rus_url = "https://github.com/tesseract-ocr/tessdata/raw/main/rus.traineddata"
+              Invoke-WebRequest -Uri $rus_url -OutFile "$tessdata\rus.traineddata" -TimeoutSec 120 -UseBasicParsing
+              Write-Host "rus.traineddata downloaded OK ($([math]::Round((Get-Item "$tessdata\rus.traineddata").Length/1MB,1)) MB)"
+            } catch {
+              Write-Host "WARNING: rus.traineddata download failed: $_"
+            }
+          }
+          # Step always exits 0 — strict self-test will catch OCR=SKIP if Tesseract not usable
+          exit 0
 
       - name: Install Russian OCR language pack (Windows OCR / WinRT)
         shell: pwsh
