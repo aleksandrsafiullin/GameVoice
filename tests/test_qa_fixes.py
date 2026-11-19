@@ -475,18 +475,31 @@ class TestSelfTest:
         """--self-test via __main__ must write valid JSON and exit 0 or 1."""
         import subprocess
         import json as _json
+        import os
 
         out_path = tmp_path / "out.json"
+        # Force UTF-8 stdout so Cyrillic in JSON doesn't cause UnicodeEncodeError
+        # on Windows where the default console encoding may be cp1252.
+        env = dict(os.environ)
+        env["PYTHONIOENCODING"] = "utf-8"
+
         proc = subprocess.run(
             [sys.executable, "-m", "gamevoice_ru", "--self-test", "--output", str(out_path)],
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            env=env,
         )
         # Must produce JSON on stdout
+        stdout = proc.stdout.strip()
+        if not stdout:
+            pytest.fail(
+                f"stdout is empty (exit={proc.returncode})\nstderr: {proc.stderr[:500]}"
+            )
         try:
-            data = _json.loads(proc.stdout)
+            data = _json.loads(stdout)
         except Exception as e:
-            pytest.fail(f"stdout is not valid JSON: {e}\nstdout: {proc.stdout[:500]}")
+            pytest.fail(f"stdout is not valid JSON: {e}\nstdout: {stdout[:500]}")
 
         # Must exit 0 (PASS) or 1 (FAIL) — never 2+ (crash/usage error)
         assert proc.returncode in (0, 1), (

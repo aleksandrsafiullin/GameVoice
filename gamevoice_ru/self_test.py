@@ -304,6 +304,14 @@ def run_self_test(output_path: Optional[Path] = None) -> dict:
 
 def main() -> int:
     logging.basicConfig(level=logging.WARNING)
+
+    # On Windows the console may be cp1252; force UTF-8 so Cyrillic JSON prints cleanly.
+    if sys.stdout.encoding and sys.stdout.encoding.lower() not in ("utf-8", "utf8"):
+        try:
+            sys.stdout.reconfigure(encoding="utf-8", errors="replace")  # type: ignore[attr-defined]
+        except (AttributeError, OSError):
+            pass  # Python <3.7 or non-reconfigurable stream
+
     output_path = None
 
     # Accept optional --output path argument
@@ -315,8 +323,9 @@ def main() -> int:
 
     result = run_self_test(output_path=output_path)
 
-    # Pretty-print JSON to stdout
-    print(json.dumps(result, indent=2, ensure_ascii=False))
+    # Use ensure_ascii=True so the output is safe on any terminal encoding.
+    # The JSON is still fully valid; Cyrillic appears as \uXXXX escapes.
+    print(json.dumps(result, indent=2, ensure_ascii=True))
 
     # Also save to file if requested
     if output_path:
