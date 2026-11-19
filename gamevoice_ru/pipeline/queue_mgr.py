@@ -50,6 +50,7 @@ class TTSQueueManager:
         mode: str = "natural",
         max_queue: int = 2,
         max_age_sec: float = 3.0,
+        interrupt_fn: Optional[Callable[[], None]] = None,
         on_speak: Optional[Callable[[str], None]] = None,
         on_done: Optional[Callable[[str], None]] = None,
         on_error: Optional[Callable[[str, str], None]] = None,
@@ -69,7 +70,13 @@ class TTSQueueManager:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._current_text: str = ""
-        self._stop_playback: Callable[[], None] = lambda: None
+        # Wire to AudioPlayer.stop() so fast mode actually interrupts audio (Finding #3).
+        # Defaults to a no-op if no interrupt_fn is provided.
+        self._stop_playback: Callable[[], None] = interrupt_fn or (lambda: None)
+
+    def set_interrupt_fn(self, fn: Callable[[], None]) -> None:
+        """Replace the stop-playback hook (e.g. AudioPlayer.stop). Thread-safe."""
+        self._stop_playback = fn
 
     def start(self) -> None:
         self._running = True
@@ -79,7 +86,7 @@ class TTSQueueManager:
     def stop(self) -> None:
         self._running = False
         self._event.set()
-        self._stop_playback()
+        self._stop_playback()   # immediately interrupts ongoing playback
         if self._thread:
             self._thread.join(timeout=3.0)
         with self._lock:
@@ -91,7 +98,7 @@ class TTSQueueManager:
         item = QueueItem(text=text, normalized=normalized or text.lower(), enqueued_at=now)
         with self._lock:
             if self.mode == "fast":
-                self._stop_playback()
+                self._stop_playback()   # interrupt current playback immediately
                 self._queue.clear()
                 self._queue.append(item)
             else:

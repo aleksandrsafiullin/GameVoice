@@ -262,28 +262,52 @@ class WindowsOCR(OCREngine):
         return "Windows OCR (WinRT)"
 
     def recognize(self, image: np.ndarray) -> str:
+        """
+        Run Windows OCR on a BGR numpy frame.
+
+        Converts to BGRA8, writes to an InMemoryRandomAccessStream via BitmapEncoder,
+        then decodes it into a SoftwareBitmap so the bitmap is properly populated
+        (Finding #2 — the original code allocated an empty bitmap and never loaded data).
+        """
         if self._ocr is None:
             return ""
         start = time.perf_counter()
         try:
-            from PIL import Image
             import asyncio
+            import io as _io
+            from PIL import Image
 
+            # BGR → RGBA (Windows OCR expects BGRA8 or RGBA8)
             rgb = image if image.ndim == 2 else image[:, :, ::-1]  # BGR→RGB
-            pil_image = Image.fromarray(rgb)
+            pil_image = Image.fromarray(rgb).convert("RGBA")
 
-            import winrt.windows.graphics.imaging as imaging
-            # Convert PIL → SoftwareBitmap
-            buf = pil_image.tobytes()
-            sb = imaging.SoftwareBitmap(
-                imaging.BitmapPixelFormat.RGBA8,
-                pil_image.width,
-                pil_image.height,
-                imaging.BitmapAlphaMode.PREMULTIPLIED,
-            )
+            # Encode to PNG in memory, then decode via BitmapDecoder into SoftwareBitmap
+            png_buf = _io.BytesIO()
+            pil_image.save(png_buf, format="PNG")
+            png_bytes = png_buf.getvalue()
 
             async def _run():
-                result = await self._ocr.recognize_async(sb)
+                import winrt.windows.storage.streams as streams
+                import winrt.windows.graphics.imaging as imaging
+
+                # Write PNG bytes into an InMemoryRandomAccessStream
+                ras = streams.InMemoryRandomAccessStream()
+                writer = streams.DataWriter(ras)
+                writer.write_bytes(bytearray(png_bytes))
+                await writer.store_async()
+                writer.detach_stream()
+                ras.seek(0)
+
+                # Decode stream → SoftwareBitmap (BGRA8 for OCR)
+                decoder = await imaging.BitmapDecoder.create_async(ras)
+                sb = await decoder.get_software_bitmap_async()
+                # Ensure BGRA8 premultiplied (required by OcrEngine)
+                sb_converted = imaging.SoftwareBitmap.convert(
+                    sb,
+                    imaging.BitmapPixelFormat.BGRA8,
+                    imaging.BitmapAlphaMode.PREMULTIPLIED,
+                )
+                result = await self._ocr.recognize_async(sb_converted)
                 return result
 
             loop = asyncio.new_event_loop()

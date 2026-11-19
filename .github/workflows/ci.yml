@@ -1,4 +1,4 @@
-name: CI — Tests + Windows EXE Build
+name: CI — Tests + Windows EXE Build + Self-Test
 
 on:
   push:
@@ -45,7 +45,7 @@ jobs:
       - name: Generate synthetic test frames
         run: python test_data/generate_frames.py
 
-      - name: Run tests
+      - name: Run unit + QA tests
         run: |
           python -m pytest tests/ \
             -v \
@@ -62,6 +62,18 @@ jobs:
             -v --tb=short || echo "Integration tests skipped or partially failed (expected in CI)"
         continue-on-error: true
 
+      - name: Run headless self-test on Linux (Tesseract)
+        run: |
+          python -m gamevoice_ru --self-test --output self_test_linux.json
+          echo "Self-test exit code: $?"
+
+      - name: Upload Linux self-test JSON
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-test-linux
+          path: self_test_linux.json
+          if-no-files-found: error
+
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
@@ -69,10 +81,10 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────────────────────────
-  # Windows tests + EXE build
+  # Windows tests + EXE build + self-test of the EXE
   # ─────────────────────────────────────────────────────────────────
   build-windows:
-    name: Windows EXE Build
+    name: Windows EXE Build + Self-Test
     runs-on: windows-latest
     needs: test-linux
 
@@ -89,23 +101,26 @@ jobs:
         run: |
           $installer_url = "https://github.com/UB-Mannheim/tesseract/releases/download/v5.3.3.20231005/tesseract-ocr-w64-setup-5.3.3.20231005.exe"
           $out = "$env:TEMP\tesseract_install.exe"
-          Write-Host "Downloading Tesseract…"
+          Write-Host "Downloading Tesseract..."
           try {
-            Invoke-WebRequest -Uri $installer_url -OutFile $out -TimeoutSec 120
+            Invoke-WebRequest -Uri $installer_url -OutFile $out -TimeoutSec 180 -UseBasicParsing
             Start-Process $out -ArgumentList "/S /LANG=rus /DIR=C:\Tesseract" -Wait
             echo "C:\Tesseract" >> $env:GITHUB_PATH
             echo "TESSDATA_PREFIX=C:\Tesseract\tessdata" >> $env:GITHUB_ENV
-            Write-Host "Tesseract installed"
+            Write-Host "Tesseract installed OK"
           } catch {
-            Write-Host "Tesseract download failed — OCR tests will be skipped"
+            Write-Host "WARNING: Tesseract download failed: $_"
+            Write-Host "OCR tests will be skipped but build will continue."
           }
 
       - name: Install Python dependencies
         shell: pwsh
         run: |
           python -m pip install --upgrade pip
-          pip install numpy Pillow opencv-python-headless pytesseract sounddevice mss pytest piper-tts || `
-            pip install numpy Pillow opencv-python-headless pytesseract sounddevice mss pytest
+          $packages = @("numpy", "Pillow", "opencv-python-headless", "pytesseract",
+                        "sounddevice", "mss", "pytest", "pytest-cov")
+          pip install @packages
+          pip install piper-tts 2>$null || Write-Host "piper-tts optional, skipping"
 
       - name: Generate synthetic test frames
         shell: pwsh
@@ -117,6 +132,18 @@ jobs:
           python -m pytest tests/ -v --tb=short `
             --ignore=tests/test_pipeline_integration.py `
             -k "not Integration"
+
+      - name: Run headless self-test via Python (before EXE build)
+        shell: pwsh
+        run: |
+          python -m gamevoice_ru --self-test --output self_test_python_windows.json
+          $exit_code = $LASTEXITCODE
+          Write-Host "Python self-test exit code: $exit_code"
+          Get-Content self_test_python_windows.json
+          if ($exit_code -ne 0) {
+            Write-Host "WARNING: Python self-test reported critical failures (see JSON above)"
+          }
+        continue-on-error: true
 
       - name: Install PyInstaller
         shell: pwsh
@@ -135,6 +162,24 @@ jobs:
             exit 1
           }
 
+      - name: Run EXE self-test (headless smoke test of built binary)
+        shell: pwsh
+        run: |
+          $exe = "dist\GameVoiceRU\GameVoiceRU.exe"
+          Write-Host "Running: $exe --self-test --output self_test_exe.json"
+          & $exe --self-test --output self_test_exe.json
+          $exit_code = $LASTEXITCODE
+          Write-Host "EXE self-test exit code: $exit_code"
+          if (Test-Path "self_test_exe.json") {
+            Get-Content self_test_exe.json
+          } else {
+            Write-Host "ERROR: self_test_exe.json not created"
+          }
+          if ($exit_code -ne 0) {
+            Write-Host "ERROR: EXE self-test returned non-zero exit code $exit_code"
+            exit $exit_code
+          }
+
       - name: Zip the portable build
         shell: pwsh
         run: |
@@ -148,3 +193,12 @@ jobs:
           path: dist/GameVoiceRU-windows-x64.zip
           retention-days: 30
           if-no-files-found: error
+
+      - name: Upload Windows self-test JSON artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: self-test-windows
+          path: |
+            self_test_python_windows.json
+            self_test_exe.json
+          if-no-files-found: warn

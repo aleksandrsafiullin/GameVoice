@@ -83,6 +83,11 @@ class PipelineRunner:
         self._queue_mgr = None
         self._last_frame_hash: Optional[int] = None
 
+        # Maps queued text → normalized so _on_tts_error can call unmark_spoken
+        # on TTS failure (Finding #4: prevents permanent suppression on TTS error).
+        self._pending_normalized: dict[str, str] = {}
+        self._pending_lock = threading.Lock()
+
     @property
     def stats(self) -> PipelineStats:
         return self._stats
@@ -128,13 +133,16 @@ class PipelineRunner:
             err = getattr(self._source, "error", None) or "Источник недоступен"
             return f"Источник видео: {err}"
 
-        # OCR
+        # OCR — init failure is not fatal but MUST surface to on_error (Finding #9)
         from gamevoice_ru.pipeline.ocr import make_ocr_engine
         self._ocr = make_ocr_engine(cfg.ocr_engine)
         if not self._ocr.is_available():
             err = getattr(self._ocr, "init_error", None) or "OCR движок недоступен"
             logger.warning("[Pipeline] OCR: %s", err)
-            # OCR errors are logged but not fatal at start — will show in diagnostics
+            # Deferred emit so on_error fires after the runner is fully started
+            self._deferred_ocr_error = f"OCR не доступен: {err}"
+        else:
+            self._deferred_ocr_error = None
 
         # Stabilizer
         from gamevoice_ru.pipeline.stabilizer import SubtitleStabilizer
@@ -161,7 +169,7 @@ class PipelineRunner:
                 device_idx = dev.index
         self._player = AudioPlayer(device_index=device_idx, volume=cfg.tts_volume)
 
-        # Queue manager
+        # Queue manager — wire AudioPlayer.stop() as interrupt_fn (Finding #3)
         from gamevoice_ru.pipeline.queue_mgr import TTSQueueManager
 
         def _synthesize(text: str):
@@ -179,12 +187,18 @@ class PipelineRunner:
             mode=cfg.tts_queue_mode,
             max_queue=cfg.tts_max_queue,
             max_age_sec=cfg.tts_max_age_sec,
+            interrupt_fn=self._player.stop,  # real stop, not lambda:None (Finding #3)
             on_speak=self._on_tts_speak,
             on_error=self._on_tts_error,
         )
         return None
 
     def _run_loop(self) -> None:
+        # Emit deferred OCR init error now that the runner is live (Finding #9)
+        if getattr(self, "_deferred_ocr_error", None):
+            self._emit_error(self._deferred_ocr_error)
+            self._deferred_ocr_error = None
+
         cfg = self._config
         frame_interval = 1.0 / max(1.0, cfg.ocr_fps)
         consecutive_empty = 0
@@ -263,17 +277,32 @@ class PipelineRunner:
             self._trigger_speak(result)
 
     def _trigger_speak(self, result) -> None:
+        # Mark spoken immediately on enqueue to prevent duplicate enqueue from
+        # the same stable frame arriving before synthesis completes.
+        # On TTS failure, _on_tts_error calls unmark_spoken() to allow retry
+        # (Finding #4: prevents permanent suppression without causing re-enqueue loops).
         self._stabilizer.mark_spoken(result.normalized)
         self._stats.phrases_spoken += 1
+        # Keep a record for the error rollback path
+        with self._pending_lock:
+            self._pending_normalized[result.text] = result.normalized
         self._queue_mgr.enqueue(result.text, result.normalized)
         logger.info("[Pipeline] В очередь: %r", result.text[:60])
 
     def _on_tts_speak(self, text: str) -> None:
+        with self._pending_lock:
+            self._pending_normalized.pop(text, None)
         self._stats.last_spoken_text = text
         if self.on_speak:
             self.on_speak(text)
 
     def _on_tts_error(self, text: str, err: str) -> None:
+        # Rollback: unmark_spoken so the subtitle can be re-spoken on next stable
+        # detection (Finding #4 — no permanent suppression on TTS failure).
+        with self._pending_lock:
+            normalized = self._pending_normalized.pop(text, None)
+        if normalized and self._stabilizer:
+            self._stabilizer.unmark_spoken(normalized)
         self._stats.tts_error_count += 1
         self._emit_error(f"TTS ошибка: {err}")
 

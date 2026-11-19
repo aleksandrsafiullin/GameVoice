@@ -85,17 +85,25 @@ def normalize_for_compare(text: str) -> str:
     return t
 
 
-def is_garbage(text: str) -> bool:
-    """Return True if the text is clearly not a subtitle (noise, HUD, etc.)."""
+def is_garbage(text: str, require_cyrillic: bool = True) -> bool:
+    """
+    Return True if the text is clearly not a subtitle (noise, HUD, etc.).
+
+    ``require_cyrillic=True`` (default): Latin-only strings are rejected.
+    This is the correct setting for a Russian-subtitle app — English HUD text,
+    stray ASCII OCR artefacts, and system notifications should never reach TTS.
+    Pass ``require_cyrillic=False`` only in multi-language contexts.
+    """
     if not text or not text.strip():
         return True
     stripped = text.strip()
     if len(stripped) < 2:
         return True
-    # Russian text must contain at least one Cyrillic character
     has_cyrillic = any("\u0400" <= c <= "\u04FF" for c in stripped)
-    has_latin = any("a" <= c.lower() <= "z" for c in stripped)
-    if not has_cyrillic and not has_latin:
+    # For Russian-subtitle apps: Latin-only text is garbage (Finding #6)
+    if require_cyrillic and not has_cyrillic:
+        return True
+    if not has_cyrillic and not any("a" <= c.lower() <= "z" for c in stripped):
         return True
     for pat in _RU_GARBAGE_RE:
         if pat.match(stripped):
@@ -277,13 +285,25 @@ class SubtitleStabilizer:
             logger.debug("[Stabilizer] CLEARING ← %r", self._current_normalized[:40])
 
     def mark_spoken(self, normalized: str) -> None:
-        """Record that this subtitle was sent to TTS."""
+        """Record that this subtitle was enqueued for TTS."""
         self._last_spoken_time = time.monotonic()
         self._spoken_texts[normalized] = time.monotonic()
         self._state = SubtitleState.SPOKEN
         # Prune old entries
         cutoff = time.monotonic() - self.text_expiry_sec
         self._spoken_texts = {k: v for k, v in self._spoken_texts.items() if v > cutoff}
+
+    def unmark_spoken(self, normalized: str) -> None:
+        """
+        Remove a subtitle from the spoken registry.
+
+        Call this when TTS synthesis fails so the subtitle can be re-spoken
+        on the next stable detection (Finding #4 — prevents permanent suppression
+        on TTS failure while still preventing infinite re-enqueue loops).
+        """
+        self._spoken_texts.pop(normalized, None)
+        if self._state == SubtitleState.SPOKEN:
+            self._state = SubtitleState.APPEARING
 
     def reset(self) -> None:
         self._state = SubtitleState.EMPTY
@@ -368,11 +388,14 @@ class SubtitleStabilizer:
         )
 
     def _effective_settle_ms(self) -> float:
-        # When settle_ms=0, return 0 immediately — used in tests and instant mode.
+        # When settle_ms=0, return 0 immediately — used in tests.
         if self.settle_ms == 0:
             return 0.0
         if not self._episode_history.incremental_mode:
-            return 90.0  # instant mode: minimal wait
+            # Non-typewriter (instant appearance): use at least 30% of configured
+            # settle_ms, minimum 90 ms. This ensures the user setting has visible
+            # effect instead of always using the hardcoded 90 ms (Finding #7).
+            return max(90.0, self.settle_ms * 0.3)
         txt = self._current_normalized.rstrip(" \"'")
         if txt.endswith(self._SENTENCE_END):
             return float(self.settle_ms)

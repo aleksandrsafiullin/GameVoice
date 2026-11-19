@@ -11,7 +11,7 @@ The crop region (SubtitleRegion) is applied after capture to extract the
 subtitle rectangle.
 
 Adapted from Lingolay's capture/screen.py and capture/region.py patterns.
-(Original: keremss7/lingolay, GPL-3.0)
+Copyright (c) keremss7/lingolay contributors. Licensed under GPL-3.0.
 """
 from __future__ import annotations
 
@@ -137,13 +137,25 @@ class FileFrameSource(FrameSource):
                     self._cap.set(1, 0)  # cv2.CAP_PROP_POS_FRAMES
                     ret, frame = self._cap.read()
                 if not ret:
-                    return None
+                    return None  # EOF
             return frame
         if not self._frames:
             return None
+        if self._index >= len(self._frames):
+            return None  # EOF in non-loop mode
         frame = self._frames[self._index]
-        self._index = (self._index + 1) % len(self._frames) if self._loop else min(self._index + 1, len(self._frames) - 1)
+        if self._loop:
+            self._index = (self._index + 1) % len(self._frames)
+        else:
+            self._index += 1  # will exceed len on next call, returning None
         return frame.copy()
+
+    @property
+    def at_eof(self) -> bool:
+        """True when non-loop source has exhausted all frames."""
+        if self._loop:
+            return False
+        return self._index >= len(self._frames)
 
     def close(self) -> None:
         if self._cap is not None:

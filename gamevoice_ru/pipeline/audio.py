@@ -127,6 +127,7 @@ class AudioPlayer:
         self._lock = threading.Lock()
         self._error: Optional[str] = None
         self._last_latency_ms: int = 0
+        self._playing = False  # tracked around play/stop (Finding #8)
 
     @property
     def device_index(self) -> Optional[int]:
@@ -150,7 +151,12 @@ class AudioPlayer:
         return _check_sounddevice()
 
     def play(self, wav_bytes: bytes, volume: Optional[float] = None, block: bool = False) -> Optional[str]:
-        """Play WAV audio. Returns error string or None."""
+        """
+        Play WAV audio. Returns error string or None.
+
+        When ``block=True``, waits for playback to finish before returning and
+        tracks the playing state correctly (Finding #8).
+        """
         if not _check_sounddevice():
             return "sounddevice не установлен"
         try:
@@ -161,9 +167,17 @@ class AudioPlayer:
             # Ensure (n_samples, n_channels) shape for sounddevice
             if data.ndim == 1:
                 data = data.reshape(-1, 1)
-            sd.play(data, samplerate=sr, device=self._device_index, blocking=block)
+            self._playing = True
+            try:
+                sd.play(data, samplerate=sr, device=self._device_index, blocking=False)
+                if block:
+                    sd.wait()
+            finally:
+                if block:
+                    self._playing = False
             return None
         except Exception as e:
+            self._playing = False
             self._error = str(e)
             logger.warning("[Audio] Ошибка воспроизведения: %s", e)
             return str(e)
@@ -175,6 +189,8 @@ class AudioPlayer:
             sd.wait()
         except Exception:
             pass
+        finally:
+            self._playing = False
 
     def stop(self) -> None:
         """Interrupt any currently playing audio."""
@@ -183,14 +199,12 @@ class AudioPlayer:
             sd.stop()
         except Exception:
             pass
+        finally:
+            self._playing = False
 
     def is_playing(self) -> bool:
-        """True if audio is currently being output."""
-        try:
-            import sounddevice as sd
-            return sd.get_stream() is not None and sd.get_stream().active
-        except Exception:
-            return False
+        """True if audio is currently being output (tracked via flag, Finding #8)."""
+        return self._playing
 
     @property
     def last_error(self) -> Optional[str]:
