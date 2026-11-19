@@ -165,15 +165,21 @@ jobs:
       - name: Run EXE self-test (headless smoke test of built binary)
         shell: pwsh
         run: |
-          $exe = "dist\GameVoiceRU\GameVoiceRU.exe"
-          Write-Host "Running: $exe --self-test --output self_test_exe.json"
-          & $exe --self-test --output self_test_exe.json
-          $exit_code = $LASTEXITCODE
+          $exe = Resolve-Path "dist\GameVoiceRU\GameVoiceRU.exe"
+          $json_out = Resolve-Path "." | Join-Path -ChildPath "self_test_exe.json"
+          Write-Host "Running: $exe --self-test --output $json_out"
+          # Use Start-Process -Wait so PowerShell blocks until the EXE finishes.
+          # & $exe would return immediately for console=False (SUBSYSTEM:WINDOWS) apps.
+          $proc = Start-Process -FilePath $exe `
+            -ArgumentList "--self-test", "--output", $json_out `
+            -Wait -PassThru -NoNewWindow
+          $exit_code = $proc.ExitCode
           Write-Host "EXE self-test exit code: $exit_code"
-          if (Test-Path "self_test_exe.json") {
-            Get-Content self_test_exe.json
+          if (Test-Path $json_out) {
+            Get-Content $json_out
           } else {
-            Write-Host "ERROR: self_test_exe.json not created"
+            Write-Host "ERROR: self_test_exe.json was not created by the EXE"
+            exit 1
           }
           if ($exit_code -ne 0) {
             Write-Host "ERROR: EXE self-test returned non-zero exit code $exit_code"
