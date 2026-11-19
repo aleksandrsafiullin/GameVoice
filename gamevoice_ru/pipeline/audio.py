@@ -154,8 +154,10 @@ class AudioPlayer:
         """
         Play WAV audio. Returns error string or None.
 
-        When ``block=True``, waits for playback to finish before returning and
-        tracks the playing state correctly (Finding #8).
+        Tracks ``_playing`` correctly for both ``block=True`` and ``block=False``
+        (Finding #8, Finding #C). For non-blocking play a watcher thread resets
+        the flag when ``sd.wait()`` returns, so ``is_playing()`` eventually
+        becomes False even without an explicit ``stop()`` call.
         """
         if not _check_sounddevice():
             return "sounddevice не установлен"
@@ -164,23 +166,37 @@ class AudioPlayer:
             data, sr = _wav_to_numpy(wav_bytes)
             vol = volume if volume is not None else self._volume
             data = data * vol
-            # Ensure (n_samples, n_channels) shape for sounddevice
             if data.ndim == 1:
                 data = data.reshape(-1, 1)
             self._playing = True
-            try:
-                sd.play(data, samplerate=sr, device=self._device_index, blocking=False)
-                if block:
+            sd.play(data, samplerate=sr, device=self._device_index, blocking=False)
+            if block:
+                try:
                     sd.wait()
-            finally:
-                if block:
+                finally:
                     self._playing = False
+            else:
+                # Watcher thread resets the flag when playback finishes
+                # (Finding #C: block=False must not leave _playing stuck True).
+                threading.Thread(
+                    target=self._wait_and_clear, daemon=True, name="AudioWatcher"
+                ).start()
             return None
         except Exception as e:
             self._playing = False
             self._error = str(e)
             logger.warning("[Audio] Ошибка воспроизведения: %s", e)
             return str(e)
+
+    def _wait_and_clear(self) -> None:
+        """Background thread: wait for sd.wait() and reset _playing flag."""
+        try:
+            import sounddevice as sd
+            sd.wait()
+        except Exception:
+            pass
+        finally:
+            self._playing = False
 
     def wait_until_done(self) -> None:
         """Block until the current audio finishes."""
@@ -203,7 +219,7 @@ class AudioPlayer:
             self._playing = False
 
     def is_playing(self) -> bool:
-        """True if audio is currently being output (tracked via flag, Finding #8)."""
+        """True if audio is currently being output (tracked via _playing flag)."""
         return self._playing
 
     @property

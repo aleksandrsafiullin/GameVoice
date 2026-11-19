@@ -54,8 +54,8 @@ class MainWindow:
         self._restore_settings()
         self._schedule_ui_refresh()
 
-        if self._cfg.first_run:
-            self._show_first_run_wizard()
+        # Always check component readiness (not just first run)
+        self._root.after(500, self._check_readiness_on_startup)
 
     def run(self) -> None:
         self._root.mainloop()
@@ -514,6 +514,27 @@ class MainWindow:
     # -------------------------------------------------------------------------
     # Lifecycle
     # -------------------------------------------------------------------------
+
+    def _check_readiness_on_startup(self) -> None:
+        """Show setup wizard if OCR or TTS is missing."""
+        try:
+            from gamevoice_ru.ui.setup_wizard import check_readiness, _SetupWizard
+            state = check_readiness()
+            if not state["ocr_ok"] or not state["tts_ok"]:
+                # Show non-blocking warning in diagnostics + optionally wizard
+                msgs = []
+                if not state["ocr_ok"]:
+                    msgs.append("⚠️ OCR не найден. Установите Tesseract или Windows OCR ru-RU.")
+                if not state["tts_ok"]:
+                    msgs.append("⚠️ Голос TTS не скачан. Нажмите «Скачать голос» в настройках.")
+                for m in msgs:
+                    self._append_error(m)
+                    self._status_label.config(text=f"● {msgs[0][:50]}", foreground="orange")
+                # Show wizard on first run
+                if self._cfg.first_run:
+                    _SetupWizard(self._root, state).run()
+        except Exception as e:
+            logger.debug("Readiness check failed: %s", e)
 
     def _on_close(self) -> None:
         self._stop_pipeline()

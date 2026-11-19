@@ -20,6 +20,12 @@ mss>=9.0.0
 pytest>=7.4.0
 pytest-cov>=4.1.0
 
+# Windows OCR (WinRT) — Windows only, install manually:
+#   pip install winrt-runtime winrt.windows.media.ocr winrt.windows.globalization \
+#               winrt.windows.graphics.imaging winrt.windows.storage.streams
+# Without these packages, OCR falls back to Tesseract automatically.
+# Not listed as hard dependency because pip install fails on Linux/macOS.
+
 # Optional: Silero TTS (heavy, PyTorch-based)
 # torch>=2.0.0
 

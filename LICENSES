@@ -1,0 +1,48 @@
+# Third-Party License Notices for GameVoice RU
+
+## Piper TTS Voice Models
+
+### ru_RU-dmitri-medium (Dmitri, Male Russian voice)
+- **Source:** https://huggingface.co/rhasspy/piper-voices/tree/main/ru/ru_RU/dmitri/medium
+- **License:** CC0-1.0 (Creative Commons Zero — Public Domain Dedication)
+- **License URL:** https://creativecommons.org/publicdomain/zero/1.0/
+- **Verified:** 19 November 2026 — MODEL_CARD in the rhasspy/piper-voices repository
+  lists this voice as CC0-1.0.
+- **Summary:** No copyright restrictions. Free for all uses including commercial.
+  Attribution is not required (though appreciated).
+
+### ru_RU-irina-medium (Irina, Female Russian voice)
+- **Source:** https://huggingface.co/rhasspy/piper-voices/tree/main/ru/ru_RU/irina/medium
+- **License:** CC0-1.0 (Creative Commons Zero — Public Domain Dedication)
+- **License URL:** https://creativecommons.org/publicdomain/zero/1.0/
+- **Verified:** 19 November 2026 — MODEL_CARD in the rhasspy/piper-voices repository
+  lists this voice as CC0-1.0.
+
+## Piper TTS (Python package)
+- **Source:** https://github.com/OHF-Voice/piper1-gpl
+- **License:** GPL-3.0-or-later
+- **Impact:** GameVoice RU is GPL-3.0 in part because piper-tts is GPL-3.0.
+
+## Lingolay (adapted algorithms)
+- **Source:** https://github.com/keremss7/lingolay
+- **License:** GPL-3.0
+- **Adapted files:**
+  - `gamevoice_ru/pipeline/stabilizer.py` — from `src/lingolay/text/cleaning.py`
+  - `gamevoice_ru/pipeline/tts.py` — from `src/lingolay/tts/piper_engine.py`
+  - `gamevoice_ru/pipeline/ocr.py` — from `src/lingolay/ocr/tesseract_ocr.py`
+  - `gamevoice_ru/pipeline/capture.py` — from `src/lingolay/capture/screen.py`
+- **Copyright:** © keremss7/lingolay contributors
+
+## Silero TTS (optional)
+- **Source:** https://github.com/snakers4/silero-models
+- **License:** CC-BY 4.0 (Attribution required)
+- **Note:** Only used if user explicitly selects Silero engine. Not bundled.
+  Attribution: "Silero TTS by snakers4 (CC-BY 4.0)"
+
+## Tesseract OCR
+- **License:** Apache-2.0
+- **Note:** Not bundled in EXE; must be installed separately on Windows.
+
+## Other Python dependencies
+See requirements.txt for full list. All listed packages are open-source
+with compatible licenses (MIT, BSD, Apache-2.0).

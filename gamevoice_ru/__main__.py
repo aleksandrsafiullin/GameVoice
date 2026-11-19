@@ -1,8 +1,9 @@
 """Entry point: `python -m gamevoice_ru` or `gamevoice-ru`.
 
 Flags:
-  --self-test          Headless self-test: OCR+TTS+audio check, prints JSON, exits 0/1.
-  --self-test --output PATH  Also save self-test JSON to PATH.
+  --self-test                   Headless self-test: OCR+TTS+audio, prints JSON, exits 0/1.
+  --self-test --strict          Strict mode: SKIP on OCR or TTS = exit 1.
+  --self-test --output PATH     Also save JSON to PATH.
 """
 import sys
 

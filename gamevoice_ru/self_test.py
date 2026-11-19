@@ -1,7 +1,10 @@
 """
 GameVoice RU headless self-test.
 
-Run with:  GameVoiceRU.exe --self-test  (or  python -m gamevoice_ru --self-test)
+Run with:
+  GameVoiceRU.exe --self-test                   # lenient mode (SKIP != failure)
+  GameVoiceRU.exe --self-test --strict          # strict mode (SKIP = failure)
+  GameVoiceRU.exe --self-test --output out.json # save JSON to file
 
 Performs:
   1. Load AppConfig (defaults — no settings file needed).
@@ -16,13 +19,16 @@ Performs:
   7. Print a JSON summary to stdout.
   8. Exit 0 on success, 1 on critical failure.
 
-A "critical failure" means:
-  - OCR produced zero text from the synthetic frame.
-  - TTS engine produced no WAV (and a model was present).
-  - An unhandled exception occurred.
+Lenient mode (default):
+  - Missing TTS model, unavailable OCR engine → SKIP (warning, not failure).
+  - Useful for quick smoke-test of EXE launch and import correctness.
 
-Non-critical issues (missing TTS model, no audio devices in CI) are reported
-in the JSON but do not cause exit 1.
+Strict mode (--strict):
+  - OCR SKIP (no engine available) → critical failure, exit 1.
+  - TTS SKIP (model not downloaded) → critical failure, exit 1.
+  - OCR ran but returned no Cyrillic → critical failure, exit 1.
+  - TTS ran but returned empty WAV → critical failure, exit 1.
+  - Use in CI after Tesseract, winrt, and Piper voice are pre-installed.
 """
 from __future__ import annotations
 
@@ -108,15 +114,19 @@ def _make_pillow_frame(text: str, width: int, height: int) -> np.ndarray:
 # Self-test runner
 # ---------------------------------------------------------------------------
 
-def run_self_test(output_path: Optional[Path] = None) -> dict:
+def run_self_test(output_path: Optional[Path] = None, strict: bool = False) -> dict:
     """
     Execute the self-test pipeline and return a JSON-serialisable result dict.
     Does not raise; all errors are captured in the result.
+
+    ``strict=True``: any SKIP on OCR or TTS is treated as a critical failure
+    (use in CI after Tesseract, winrt, and Piper voice are pre-installed).
     """
     result: dict = {
         "gamevoice_ru_version": "0.1.0",
         "platform": sys.platform,
         "python": sys.version.split()[0],
+        "strict": strict,
         "steps": {},
         "overall": "PASS",
         "critical_failures": [],
@@ -210,17 +220,32 @@ def run_self_test(output_path: Optional[Path] = None) -> dict:
         "error": ocr_error,
         "elapsed_ms": int((time.perf_counter() - t0) * 1000),
     }
-    # Critical: OCR engine was available but raised an unhandled exception (error set by exception handler)
-    # Non-critical (warning): engine unavailable (not installed), or returned empty/non-Cyrillic text.
-    # Rationale: in headless CI, Tesseract may not be installed; that is an environment gap,
-    # not an application bug. The important check is that the app does not crash and that
-    # a correctly installed OCR engine works.
+    # Lenient mode: missing engine → warning only.
+    # Strict mode: any SKIP or missing Cyrillic → critical failure.
     if not ocr_text and ocr_error:
-        result["warnings"].append(f"OCR engine unavailable (not critical in headless CI): {ocr_error}")
+        msg = f"OCR engine unavailable: {ocr_error}"
+        if strict:
+            result["critical_failures"].append(f"[strict] {msg}")
+            result["overall"] = "FAIL"
+        else:
+            result["warnings"].append(f"{msg} (not critical in lenient mode)")
     elif not has_cyrillic and ocr_text:
-        result["warnings"].append(f"OCR returned text but no Cyrillic: {ocr_text!r}")
+        msg = f"OCR returned text but no Cyrillic: {ocr_text!r}"
+        if strict:
+            result["critical_failures"].append(f"[strict] {msg}")
+            result["overall"] = "FAIL"
+        else:
+            result["warnings"].append(msg)
     elif not ocr_text and not ocr_error and ocr_engine_used not in ("", "none"):
-        result["warnings"].append("OCR engine present but returned empty string on synthetic frame")
+        msg = "OCR engine present but returned empty string on synthetic frame"
+        if strict:
+            result["critical_failures"].append(f"[strict] {msg}")
+            result["overall"] = "FAIL"
+        else:
+            result["warnings"].append(msg)
+    elif ocr_status == "SKIP" and strict:
+        result["critical_failures"].append("[strict] OCR=SKIP: no OCR engine available")
+        result["overall"] = "FAIL"
 
     # ------------------------------------------------------------------
     # Step 4: Stabilizer
@@ -271,13 +296,20 @@ def run_self_test(output_path: Optional[Path] = None) -> dict:
             else:
                 steps["tts"] = {"status": "FAIL", "engine": "PiperTTS", "error": err}
         else:
+            skip_reason = tts.init_error or "model not downloaded"
             steps["tts"] = {
                 "status": "SKIP",
                 "engine": "PiperTTS",
                 "reason": "model not downloaded",
                 "init_error": tts.init_error,
             }
-            result["warnings"].append(f"TTS model not available: {tts.init_error}")
+            if strict:
+                result["critical_failures"].append(
+                    f"[strict] TTS=SKIP: Piper model not ready: {skip_reason}"
+                )
+                result["overall"] = "FAIL"
+            else:
+                result["warnings"].append(f"TTS model not available: {skip_reason}")
     except Exception as e:
         steps["tts"] = {"status": "FAIL", "error": str(e)}
         result["critical_failures"].append(f"TTS: {e}")
@@ -326,15 +358,17 @@ def main() -> int:
             pass  # Python <3.7 or non-reconfigurable stream
 
     output_path = None
+    strict = False
 
-    # Accept optional --output path argument
     args = sys.argv[1:]
+    if "--strict" in args:
+        strict = True
     if "--output" in args:
         idx = args.index("--output")
         if idx + 1 < len(args):
             output_path = Path(args[idx + 1])
 
-    result = run_self_test(output_path=output_path)
+    result = run_self_test(output_path=output_path, strict=strict)
 
     # Use ensure_ascii=True so the output is safe on any terminal encoding.
     # The JSON is still fully valid; Cyrillic appears as \uXXXX escapes.

@@ -76,15 +76,54 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-### 3. Скачайте голосовые модели Piper
+### 3. Установите Windows OCR (рекомендуется)
+
+Windows OCR — встроенный движок распознавания текста, работает лучше Tesseract с игровыми шрифтами.
+
+**Способ 1 — через настройки:**
+1. `Пуск → Настройки → Время и язык → Язык`
+2. Нажмите «Добавить язык» → выберите «Русский»
+3. При установке отметьте «Распознавание рукописного текста»
+
+**Способ 2 — через PowerShell (Администратор):**
+```powershell
+Add-WindowsCapability -Online -Name "Language.OCR~~~ru-RU~0.0.1.0"
+```
+
+**Способ 3 — Python-пакеты WinRT (если Способ 1/2 недоступен):**
+```powershell
+pip install winrt-runtime winrt.windows.media.ocr winrt.windows.globalization `
+            winrt.windows.graphics.imaging winrt.windows.storage.streams
+```
+
+### 4. Установите Tesseract OCR (резервный движок)
+
+Если Windows OCR недоступен, программа использует Tesseract.
+
+Скачайте установщик UB-Mannheim:
+https://github.com/UB-Mannheim/tesseract/wiki
+
+При установке:
+- Отметьте **Russian** в разделе «Additional language data».
+- Добавьте путь установки в системную переменную `PATH`.
+
+Проверьте:
+```cmd
+tesseract --version
+tesseract --list-langs   # должно содержать "rus"
+```
+
+### 5. Скачайте голосовые модели Piper
 
 ```powershell
 python -m gamevoice_ru.pipeline.tts --download piper
 ```
 
-Это скачает два голоса (~60 МБ каждый) в `%USERPROFILE%\.gamevoice_ru\voices\`.
+Это скачает два голоса (~65 МБ каждый) в `%USERPROFILE%\.gamevoice_ru\voices\`.
 
-### 4. Запустите приложение
+Лицензия голосов: **CC0-1.0** (Creative Commons Zero — общественное достояние).
+
+### 6. Запустите приложение
 
 ```powershell
 python -m gamevoice_ru

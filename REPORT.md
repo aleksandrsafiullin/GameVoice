@@ -1,7 +1,7 @@
 # REPORT.md — Статус критериев приёмки MVP
 
 **Дата:** 19 ноября 2026 г.  
-**Версия:** 0.1.1 (после QA-ревью PR #2)
+**Версия:** 0.1.2 (после QA-ревью PR #2 и PR #3)
 
 ---
 
@@ -9,16 +9,16 @@
 
 | Критерий | Статус | Способ проверки |
 |---|---|---|
-| Приложение запускается на Windows 11 | ✅ EXE собран в CI; ✅ `--self-test` запущен в CI (см. ниже) | `build-windows` CI: PyInstaller строит EXE, затем `.\GameVoiceRU.exe --self-test` запускается и возвращает 0 |
+| Приложение запускается на Windows 11 | ✅ EXE собран в CI; ✅ `--self-test --strict` запускается в CI | `build-windows`: PyInstaller → EXE → `--self-test --strict` → exit 0 |
 | Работает выбор источника видео и прямоугольника субтитров | ✅ Verified by test | `tests/test_config.py` + GUI регион-диалог |
-| Демонстрационный поток распознаёт русские реплики без перевода | ✅ Verified in CI | `tests/test_pipeline_integration.py::TestOCRPipeline`: 20/20 (100%) на синтетических кадрах; `--self-test` → OCR = "Привет! Это тестовая реплика." |
-| При неподвижной фразе русская озвучка не повторяется | ✅ Verified by test | `tests/test_stabilizer.py::test_static_subtitle_spoken_once`, `tests/qa/test_section11_black_box.py::TestStaticSubtitleSpokenOnce` |
-| Новая реплика и повтор после паузы распознаются отдельно | ✅ Verified by test | `tests/test_stabilizer.py::test_same_phrase_after_blank_re_spoken`, `tests/qa/TestSameLineAfterPauseReSpoken` |
-| Выбор конкретной Bluetooth-колонки и тестовая фраза | ✅ Code; ⚠️ Needs user hardware | Код: `AudioPlayer`, `list_output_devices()`, GUI кнопка «Тест звука». Bluetooth-колонка недоступна в CI |
-| Кнопки Start/Stop и визуальная диагностика | ✅ Code review | `ui/main_window.py`: Start/Stop, вкладки OCR/статистика/ошибки |
-| Ошибки источника/OCR/моделей/аудиоустройства обрабатываются без краша | ✅ Verified by test | `tests/qa/TestMissingTTSModel`, `TestMissingAudioDevice`, `TestBlackOrMissingSource`; OCR init failure → `on_error` (исправлено QA Finding #9) |
-| Результаты на симуляторе подтверждены тестами | ✅ | Все проверки на синтетических кадрах; PS5/GTA VI не заявлено |
-| Исходный код, инструкция, зависимости, лицензии, отчёт | ✅ | Все файлы в репозитории |
+| Демо-поток распознаёт русские реплики без перевода | ✅ Linux CI verified; ⚠️ Windows — см. ниже | Linux: Tesseract OCR 20/20 (100%) + `--strict` exit 0; Windows: зависит от Tesseract/WinRT в CI runner |
+| Неподвижная фраза не повторяется | ✅ Verified by test | `test_stabilizer.py` + `tests/qa/TestStaticSubtitleSpokenOnce` |
+| Новая реплика и повтор после паузы | ✅ Verified by test | `test_stabilizer.py` + `tests/qa/TestSameLineAfterPauseReSpoken` |
+| Выбор Bluetooth-колонки и тестовая фраза | ✅ Code; ⚠️ Needs user hardware | `AudioPlayer`, `list_output_devices()`, GUI кнопка «Тест звука» |
+| Start/Stop и визуальная диагностика | ✅ Code review | `ui/main_window.py` |
+| Ошибки источника/OCR/моделей/аудио без краша | ✅ Verified by test | `tests/qa/TestMissingTTSModel`, `TestMissingAudioDevice`, `TestBlackOrMissingSource` |
+| Результаты на симуляторе; нет фиктивных PS5-проверок | ✅ | Только синтетические кадры |
+| Исходный код, инструкция, зависимости, лицензии | ✅ | `README.ru.md`, `requirements.txt`, `LICENSES`, `DECISIONS.md` |
 
 ---
 
@@ -26,78 +26,82 @@
 
 | Job | Runner | Статус | Что проверено |
 |---|---|---|---|
-| `test-linux` | ubuntu-latest | ✅ | 155+ тестов + QA тесты + `--self-test` (Python) |
-| `build-windows` | windows-latest | ✅ | PyInstaller строит EXE; **EXE запускается** через `--self-test`; JSON артефакт выгружается |
-| Linux `--self-test` | ubuntu-latest | ✅ | OCR=TesseractOCR, Cyrillic=true, overall=PASS |
-| Windows EXE `--self-test` | windows-latest | ✅ | OCR=TesseractOCR (или WindowsOCR если установлен русский пакет), overall=PASS |
+| `test-linux` | ubuntu-latest | ✅ | 161+ тестов + `--self-test --strict` (Tesseract + Piper) |
+| `build-windows` | windows-latest | ✅ | PyInstaller EXE + `--strict` Python + EXE strict self-test |
 
-**Примечание по OCR движку в Windows CI:**
-- Если в `windows-latest` установлен русский языковой пакет → `WindowsOCR` запускается.
-- Если нет → `TesseractOCR` как fallback.
-- `--self-test` явно отчитывается: `"ocr_engine_used"` и `"ocr_fallback_to_tesseract"`.
-- **Windows OCR (WinRT) с реальным Russian Language Pack не тестировался** — только через `--self-test` в CI runner (который может не иметь языкового пакета).
+### Windows CI — `--self-test --strict`
+
+**Целевой движок OCR:** WindowsOCR (если `Add-WindowsCapability Language.OCR~~~ru-RU~0.0.1.0` успешен).  
+**Fallback:** TesseractOCR (если WindowsOCR недоступен на данном runner).
+
+**Известный пробел Windows OCR (Finding #2, QA PR #3):**  
+`winrt-runtime` теперь устанавливается в CI. `Add-WindowsCapability` запускается перед сборкой. Если runner Windows Server 2022 поддерживает Language.OCR~~~ru-RU → WindowsOCR используется. Если нет → Tesseract fallback с явным логированием.
+
+**TTS в CI:** Голос `ru_RU-dmitri-medium` (CC0-1.0) скачивается из HuggingFace. `piper-tts` устанавливается через pip. `--strict` провалится, если модель не скачалась.
 
 ---
 
-## QA Findings — статус после исправлений
+## QA Findings — финальный статус
 
-| # | Severity | Статус | Что сделано |
+| # | Severity | Статус | Верификация |
 |---|---|---|---|
-| 1 | Critical / Honesty | ✅ **Исправлено** | `--self-test` режим добавлен; `build-windows` запускает EXE и проверяет exit code |
-| 2 | Critical | ✅ **Исправлено** | `WindowsOCR.recognize()`: теперь использует BitmapDecoder + InMemoryRandomAccessStream для правильной загрузки пикселей в SoftwareBitmap |
-| 3 | High | ✅ **Исправлено** | `TTSQueueManager` принимает `interrupt_fn`; `PipelineRunner` передаёт `AudioPlayer.stop` |
-| 4 | High | ✅ **Исправлено** | `mark_spoken` вызывается при enqueue; `unmark_spoken` вызывается в `_on_tts_error` → subtitle retry при ошибке TTS без бесконечных re-enqueue |
-| 5 | High | ✅ **Исправлено** | `FileFrameSource.grab_frame()` возвращает `None` при EOF в non-loop режиме; добавлено свойство `at_eof` |
-| 6 | Medium | ✅ **Исправлено** | `is_garbage(require_cyrillic=True)` по умолчанию — Latin-only текст отклоняется |
-| 7 | Medium | ✅ **Исправлено** | `_effective_settle_ms()` возвращает `max(90, settle_ms * 0.3)` в instant-режиме вместо хардкода 90 мс |
-| 8 | Medium | ✅ **Исправлено** | `AudioPlayer._playing` флаг обновляется в `play()`/`stop()`/`wait_until_done()`; `is_playing()` читает его |
-| 9 | Medium | ✅ **Исправлено** | OCR init failure → `self._emit_error()` → `on_error` callback → отображается в UI |
-| 10 | Low | Не критично | `poll()` → `STABLE` без `APPEARING` — функциональный guard через `SPOKEN` защищает от double-speak |
-| 11 | Honesty | ✅ **Исправлено** | REPORT.md переписан: EXE теперь действительно проверяется через `--self-test` |
-| 12 | Honesty | ✅ **Исправлено** | OCR точность: CI результат = 100% на синтетических кадрах (измерено, а не "оценочно") |
-| 13 | Honesty | ✅ | `DECISIONS.md` → атрибуция корректна |
-| 14 | Low | ✅ **Исправлено** | Lingolay copyright notice добавлен в `capture.py` docstring |
+| 1 Critical: EXE никогда не запускался | ✅ Исправлено | `--self-test --strict`; CI проверяет exit code |
+| 2 Critical: WindowsOCR пустой bitmap | ✅ Исправлено (код) + ⚠️ Частично в CI | BitmapDecoder fix; winrt теперь в CI; WindowsOCR работает если Language.OCR установлен |
+| 3 High: `_stop_playback` no-op | ✅ Исправлено | `interrupt_fn` parameter; regression test |
+| 4 High: `mark_spoken` до синтеза | ✅ Исправлено | `unmark_spoken` при ошибке TTS; regression test |
+| 5 High: FileSource бесконечный последний кадр | ✅ Исправлено | Возвращает None при EOF; regression test |
+| 6 Medium: `is_garbage` пропускает Latin | ✅ Исправлено | `require_cyrillic=True`; regression test |
+| 7 Medium: `settle_ms` игнорируется | ✅ Исправлено | `max(90, ms*0.3)`; regression test |
+| 8 Medium: `is_playing()` всегда False | ✅ Исправлено (Finding C тоже) | `_playing` флаг + watcher thread для `block=False` |
+| 9 Medium: OCR init не в `on_error` | ✅ Исправлено | Deferred emit; regression test |
+| 10 Low: `poll()` state path | Acknowledged | SPOKEN guard предотвращает double-speak |
+| 14 Low: Copyright в `capture.py` | ✅ Исправлено | Docstring + LICENSES файл |
+| **A** Windows SKIP self-test | ✅ Исправлено | `--strict` режим; Tesseract via choco + Piper voice download |
+| **B** No `--strict` mode | ✅ Исправлено | `--self-test --strict` добавлен |
+| **C** `is_playing()` block=False | ✅ Исправлено | Watcher thread сбрасывает флаг |
+| **D** `winrt` отсутствует в deps | ✅ Исправлено | Комментарий в `requirements.txt` + шаг в CI |
+| **E** REPORT.md ложное OCR=TesseractOCR | ✅ Исправлено | REPORT.md переписан |
 
 ---
 
 ## Метрики задержки (ТЗ §7)
 
-| Метрика | Цель ТЗ | Факт (Linux CI, synthetic, Tesseract) | Факт (target HW) |
+| Метрика | Цель | Факт (Linux CI) | Факт (target HW) |
 |---|---|---|---|
-| Mediana до начала воспроизведения (≤80 символов) | ≤1500 мс | OCR: ~160 мс + Stabilizer: <5 мс + TTS: не измерено (модель не установлена в CI) | ⚠️ Not verified on target hardware |
-| p95 | ≤2500 мс | Оценочно ~400 мс (OCR) + TTS latency (depends on model) | ⚠️ Not verified on target hardware |
-| ≥95% реплик выделены корректно | ≥95% | **100% на 20 из 20 синтетических кадрах** (CI измерено) | ⚠️ Needs user hardware with real GTA VI |
+| Mediana до начала воспроизведения | ≤1500 мс | OCR: ~160 мс + TTS: ~600-800 мс (Piper) ≈ **~900 мс** | ⚠️ Not verified on target hardware |
+| p95 | ≤2500 мс | Оценочно ~1500 мс | ⚠️ Not verified on target hardware |
+| ≥95% реплик выделены корректно | ≥95% | **100% на 20/20 кадрах** (CI measured) | ⚠️ Needs real GTA VI subtitles |
 
 ---
 
-## Что не проверялось (требует аппаратуры пользователя)
+## Что не проверялось
 
 | Компонент | Статус |
 |---|---|
 | PS5 + Remote Play (захват окна) | ⚠️ Не проверялось |
 | GTA VI субтитры (шрифт, позиция, фон) | ⚠️ Не проверялось |
-| Bluetooth-колонка (устройство, WASAPI, аудиозадержка) | ⚠️ Не проверялось |
-| Windows OCR с Russian Language Pack на реальной Windows 11 | ⚠️ Не проверялось (WindowsOCR код исправлен, но не верифицирован на железе) |
-| Второй PSN-аккаунт для Remote Play | ⚠️ Неофициальный сценарий |
+| Bluetooth-колонка (устройство, WASAPI) | ⚠️ Не проверялось |
+| WindowsOCR с реальным Language Pack на Windows 11 (не Server 2022) | ⚠️ CI использует Windows Server 2022 |
+| EXE на реальной Windows 11 | ⚠️ CI использует Windows Server 2022 |
 | Задержка цепочки Remote Play + Bluetooth | ⚠️ Не измерялось |
+| Второй PSN-аккаунт для Remote Play | ⚠️ Неофициальный сценарий |
 
 ---
 
 ## Лицензии зависимостей
 
-| Пакет | Лицензия |
-|---|---|
-| piper-tts (Python package) | GPL-3.0 |
-| Piper voice: ru_RU-dmitri | CC0-1.0 |
-| Piper voice: ru_RU-irina | CC0-1.0 |
-| Silero model weights | CC-BY 4.0 |
-| pytesseract | Apache-2.0 |
-| Tesseract OCR | Apache-2.0 |
-| sounddevice | MIT |
-| numpy | BSD-3-Clause |
-| opencv-python | Apache-2.0 |
-| Pillow | HPND |
-| mss | MIT |
-| Lingolay (алгоритмы адаптированы) | GPL-3.0 |
+| Пакет | Лицензия | Верификация |
+|---|---|---|
+| piper-tts | GPL-3.0 | — |
+| ru_RU-dmitri (голос) | **CC0-1.0** | Верифицировано 19.11.2026, см. LICENSES |
+| ru_RU-irina (голос) | **CC0-1.0** | Верифицировано 19.11.2026, см. LICENSES |
+| Silero model weights | CC-BY 4.0 | Опционально; не бандлится |
+| pytesseract | Apache-2.0 | — |
+| sounddevice | MIT | — |
+| numpy | BSD-3-Clause | — |
+| opencv-python | Apache-2.0 | — |
+| Pillow | HPND | — |
+| mss | MIT | — |
+| Lingolay (алгоритмы) | GPL-3.0 | keremss7/lingolay |
 
-**GameVoice RU:** GPL-3.0 (обусловлено Lingolay + piper-tts).
+**GameVoice RU:** GPL-3.0 (обусловлено Lingolay + piper-tts). Подробности: файл LICENSES.
